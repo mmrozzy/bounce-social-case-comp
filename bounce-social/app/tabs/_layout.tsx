@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { View, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
@@ -35,20 +36,11 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="groups"
         options={{
-          title: 'Home',
+          title: 'Groups',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
+           <FontAwesome name="group" size={size} color={color} />
           ),
         }}
       />
@@ -58,15 +50,6 @@ export default function TabLayout() {
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="groups"
-        options={{
-          title: 'Groups',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="rocket" size={size} color={color} />
           ),
         }}
       />
