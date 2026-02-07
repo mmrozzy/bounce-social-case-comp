@@ -10,6 +10,7 @@ interface GroupProfileProps {
     name: string;
     members: number;
     image: string;
+    banner?: string;
   };
   onBack: () => void;
 }
@@ -201,7 +202,11 @@ export default function GroupProfile({ group, onBack }: GroupProfileProps) {
         </TouchableOpacity>
 
         {/* Banner */}
-        <View style={styles.banner} />
+        {group.banner ? (
+          <Image source={{ uri: group.banner }} style={styles.banner} />
+        ) : (
+          <View style={styles.banner} />
+        )}
         
         {/* Group Picture */}
         <View style={styles.profilePicContainer}>

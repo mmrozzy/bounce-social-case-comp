@@ -1,27 +1,52 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import GroupProfile from '@/components/GroupProfile';
+import CreateGroup from '@/components/CreateGroup';
 
 interface Group {
   id: string;
   name: string;
   members: number;
   image: string;
+  banner?: string;
 }
 
-// Sample groups data with colors
-const SAMPLE_GROUPS: Group[] = [
+const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
+
+// Initial sample groups
+const INITIAL_GROUPS: Group[] = [
   { id: '1', name: 'Basketball Crew', members: 24, image: 'https://via.placeholder.com/60' },
   { id: '2', name: 'Friday Night Football', members: 18, image: 'https://via.placeholder.com/60' },
   { id: '3', name: 'Tennis Club', members: 12, image: 'https://via.placeholder.com/60' },
   { id: '4', name: 'Morning Runners', members: 31, image: 'https://via.placeholder.com/60' },
 ];
 
-const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
-
 export default function GroupsScreen() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
+
+  const handleCreateGroup = (groupName: string, banner: string, profilePic: string, password: string) => {
+    const newGroup: Group = {
+      id: Date.now().toString(),
+      name: groupName,
+      members: 1, // Creator is the first member
+      image: profilePic,
+      banner: banner,
+    };
+    setGroups([...groups, newGroup]);
+    setShowCreateGroup(false);
+  };
+
+  if (showCreateGroup) {
+    return (
+      <CreateGroup 
+        onBack={() => setShowCreateGroup(false)}
+        onCreateGroup={handleCreateGroup}
+      />
+    );
+  }
 
   // Show Group Profile if selected
   if (selectedGroup) {
@@ -37,15 +62,31 @@ export default function GroupsScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={SAMPLE_GROUPS}
+        data={groups}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <TouchableOpacity 
+            style={styles.createGroupButton}
+            onPress={() => setShowCreateGroup(true)}
+          >
+            <Ionicons name="add-circle" size={24} color="#000" />
+            <Text style={styles.createGroupButtonText}>Create New Group</Text>
+          </TouchableOpacity>
+        }
         renderItem={({ item, index }) => (
           <TouchableOpacity 
             style={styles.groupItem}
             onPress={() => setSelectedGroup(item)}
           >
             <View style={styles.groupItemImageContainer}>
-              <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
+              {item.image.startsWith('file://') || item.image.startsWith('content://') ? (
+                <>
+                  <Image source={{ uri: item.image }} style={styles.groupItemImageBackground} />
+                  <View style={styles.groupItemImageMask} />
+                </>
+              ) : (
+                <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
+              )}
             </View>
             <View style={styles.groupItemInfo}>
               <Text style={styles.groupItemName}>{item.name}</Text>
@@ -77,6 +118,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   groupItemDiamond: {
     width: 0,
@@ -86,6 +128,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 45,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
+    borderRadius: 5,
+  },
+  groupItemImageBackground: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  groupItemImageMask: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 25,
+    borderRightWidth: 25,
+    borderBottomWidth: 45,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: 'rgba(0,0,0,0.3)',
     borderRadius: 5,
   },
   groupItemInfo: {
@@ -105,5 +164,26 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#222',
     marginLeft: 90,
+  },
+  createGroupButton: {
+    flexDirection: 'row',
+    backgroundColor: '#C3F73A',
+    paddingVertical: 15,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    margin: 20,
+    shadowColor: '#C3F73A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  createGroupButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
