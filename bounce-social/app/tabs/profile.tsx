@@ -1,7 +1,13 @@
-import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity } from 'react-native';
+import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setNavigationTarget } from '@/lib/navigationState';
+
+const PROFILE_BANNER_KEY = '@profile_banner';
+const PROFILE_IMAGE_KEY = '@profile_image';
 
 interface RecentAction {
   id: string;
@@ -87,6 +93,70 @@ const getActionIcon = (type: RecentAction['type']) => {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [bannerImage, setBannerImage] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Load saved images on mount
+  useEffect(() => {
+    loadImages();
+    requestPermissions();
+  }, []);
+
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'We need access to your photos to upload images.');
+    }
+  };
+
+  const loadImages = async () => {
+    try {
+      const savedBanner = await AsyncStorage.getItem(PROFILE_BANNER_KEY);
+      const savedProfile = await AsyncStorage.getItem(PROFILE_IMAGE_KEY);
+      if (savedBanner) setBannerImage(savedBanner);
+      if (savedProfile) setProfileImage(savedProfile);
+    } catch (error) {
+      console.error('Error loading images:', error);
+    }
+  };
+
+  const pickBannerImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setBannerImage(uri);
+      try {
+        await AsyncStorage.setItem(PROFILE_BANNER_KEY, uri);
+      } catch (error) {
+        console.error('Error saving banner:', error);
+      }
+    }
+  };
+
+  const pickProfileImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setProfileImage(uri);
+      try {
+        await AsyncStorage.setItem(PROFILE_IMAGE_KEY, uri);
+      } catch (error) {
+        console.error('Error saving profile image:', error);
+      }
+    }
+  };
 
   const handleActionPress = (action: RecentAction) => {
     // Set navigation target for groups tab to pick up
@@ -98,23 +168,55 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container}>
       {/* Banner */}
-      <View style={styles.banner} />
+      <TouchableOpacity 
+        style={styles.bannerContainer}
+        onPress={pickBannerImage}
+        activeOpacity={0.8}
+      >
+        {bannerImage ? (
+          <Image source={{ uri: bannerImage }} style={styles.banner} />
+        ) : (
+          <View style={styles.banner}>
+            <View style={styles.uploadOverlay}>
+              <Ionicons name="camera" size={40} color="#666" />
+              <Text style={styles.uploadText}>Tap to add banner</Text>
+            </View>
+          </View>
+        )}
+        {bannerImage && (
+          <View style={styles.editIconOverlay}>
+            <Ionicons name="camera" size={24} color="#fff" />
+          </View>
+        )}
+      </TouchableOpacity>
       
       {/* Profile Picture */}
       <View style={styles.profilePicContainer}>
-        <View style={styles.profilePic}>
-          {/* Replace with actual profile image */}
+        {/* Triangle background */}
+        <Image 
+          source={require('@/assets/images/profile/triangle.png')}
+          style={styles.profileTriangle}
+        />
+        
+        <TouchableOpacity 
+          style={styles.profilePic}
+          onPress={pickProfileImage}
+          activeOpacity={0.8}
+        >
           <Image 
-            source={{ uri: 'https://via.placeholder.com/150' }}
+            source={{ uri: profileImage || 'https://via.placeholder.com/150' }}
             style={styles.profileImage}
           />
-        </View>
+          <View style={styles.profileEditIcon}>
+            <Ionicons name="camera" size={20} color="#fff" />
+          </View>
+        </TouchableOpacity>
       </View>
       
       {/* Profile content */}
       <View style={styles.content}>
         {/* Greeting */}
-        <Text style={styles.greeting}>Hello, bouncy boyy</Text>
+        <Text style={styles.greeting}>Hello, Guillaume!</Text>
 
         {/* Recent Actions Section */}
         <View style={styles.actionsSection}>
@@ -153,14 +255,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  bannerContainer: {
+    position: 'relative',
+  },
   banner: {
     width: '100%',
     height: 200,
-    backgroundColor: '#333', // Placeholder - replace with banner image
+    backgroundColor: '#333',
+  },
+  uploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#333',
+  },
+  uploadText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  editIconOverlay: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    padding: 8,
   },
   profilePicContainer: {
     alignItems: 'center',
     marginTop: -75, // Negative margin to overlap banner
+    position: 'relative',
+  },
+  profileTriangle: {
+    position: 'absolute',
+    width: 240,
+    height: 200,
+    top: -50,
+    zIndex: 0,
+    opacity: 0.9,
   },
   profilePic: {
     width: 150,
@@ -170,10 +307,20 @@ const styles = StyleSheet.create({
     borderColor: '#000', // Black border to separate from banner
     backgroundColor: '#fff',
     overflow: 'hidden',
+    position: 'relative',
+    zIndex: 1,
   },
   profileImage: {
     width: '100%',
     height: '100%',
+  },
+  profileEditIcon: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 15,
+    padding: 6,
   },
   content: {
     padding: 20,
