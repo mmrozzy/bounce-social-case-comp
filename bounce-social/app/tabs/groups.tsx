@@ -1,8 +1,11 @@
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
+import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'currentUser';
@@ -28,8 +31,24 @@ const INITIAL_GROUPS: Group[] = [
 
 export default function GroupsScreen() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(undefined);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
+
+  // Listen for navigation from other tabs
+  useFocusEffect(
+    useCallback(() => {
+      const navTarget = getNavigationTarget();
+      if (navTarget.groupId && navTarget.activityId) {
+        const group = groups.find(g => g.id === navTarget.groupId);
+        if (group) {
+          setSelectedGroup(group);
+          setSelectedActivityId(navTarget.activityId);
+          clearNavigationTarget();
+        }
+      }
+    }, [groups])
+  );
 
   const handleCreateGroup = (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
     const newGroup: Group = {
@@ -58,7 +77,11 @@ export default function GroupsScreen() {
     return (
       <GroupProfile 
         group={selectedGroup} 
-        onBack={() => setSelectedGroup(null)} 
+        onBack={() => {
+          setSelectedGroup(null);
+          setSelectedActivityId(undefined);
+        }}
+        initialActivityId={selectedActivityId}
       />
     );
   }

@@ -1,6 +1,6 @@
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 
@@ -17,6 +17,7 @@ interface GroupProfileProps {
     createdBy: string;
   };
   onBack: () => void;
+  initialActivityId?: string;
 }
 
 interface Event {
@@ -102,7 +103,7 @@ const SAMPLE_SPLITS: Split[] = [
   },
 ];
 
-export default function GroupProfile({ group, onBack }: GroupProfileProps) {
+export default function GroupProfile({ group, onBack, initialActivityId }: GroupProfileProps) {
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showCreateSplit, setShowCreateSplit] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
@@ -111,6 +112,16 @@ export default function GroupProfile({ group, onBack }: GroupProfileProps) {
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set(['2'])); // '2' is the user's own event
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
+
+  // Auto-open activity modal if initialActivityId is provided
+  useEffect(() => {
+    if (initialActivityId) {
+      const activity = activities.find(a => a.id === initialActivityId);
+      if (activity) {
+        setSelectedActivity(activity);
+      }
+    }
+  }, [initialActivityId]);
 
   const handleCreateEvent = (eventName: string, amount: string, deadline: string) => {
     const newEvent: Event = {
