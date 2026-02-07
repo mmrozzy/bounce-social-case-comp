@@ -1,4 +1,4 @@
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
@@ -47,6 +47,25 @@ interface Split {
 }
 
 type Activity = Event | Split;
+
+interface Member {
+  id: string;
+  name: string;
+  avatar: string;
+  role: 'host' | 'member';
+}
+
+// Sample members
+const SAMPLE_MEMBERS: Member[] = [
+  { id: '1', name: 'You', avatar: 'https://via.placeholder.com/50', role: 'host' },
+  { id: '2', name: 'John Smith', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: '3', name: 'Sarah Johnson', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: '4', name: 'Mike Davis', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: '5', name: 'Emma Wilson', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: '6', name: 'Chris Brown', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: '7', name: 'Lisa Anderson', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: '8', name: 'Tom Martinez', avatar: 'https://via.placeholder.com/50', role: 'member' },
+];
 
 // Sample events
 const SAMPLE_EVENTS: Event[] = [
@@ -107,11 +126,18 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showCreateSplit, setShowCreateSplit] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [activities, setActivities] = useState<Activity[]>([...SAMPLE_EVENTS, ...SAMPLE_SPLITS]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set(['2'])); // '2' is the user's own event
+  const [members] = useState<Member[]>(SAMPLE_MEMBERS);
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
+  
+  const filteredMembers = members.filter(member => 
+    member.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Auto-open activity modal if initialActivityId is provided
   useEffect(() => {
@@ -250,7 +276,9 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         {/* Group Title & Members */}
         <View style={styles.headerInfo}>
           <Text style={styles.groupTitle}>{group.name}</Text>
-          <Text style={styles.memberCount}>{group.members} members</Text>
+          <TouchableOpacity onPress={() => setShowMembersModal(true)}>
+            <Text style={styles.memberCount}>{group.members} members</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Create Event Button Section */}
@@ -520,6 +548,74 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                   <Text style={styles.notificationEmptyText}>No events to notify about</Text>
                 }
                 style={styles.notificationEventList}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => {
+            setShowMembersModal(false);
+            setSearchQuery('');
+          }}
+        >
+          <View style={styles.membersModalOverlay}>
+            <View style={styles.membersModalContent}>
+              <View style={styles.membersModalHeader}>
+                <Text style={styles.membersModalTitle}>Group Members</Text>
+                <TouchableOpacity onPress={() => {
+                  setShowMembersModal(false);
+                  setSearchQuery('');
+                }}>
+                  <Ionicons name="close" size={28} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Search Bar */}
+              <View style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search members..."
+                  placeholderTextColor="#666"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
+              
+              {/* Members List */}
+              <FlatList
+                data={filteredMembers}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <View style={styles.memberItem}>
+                    <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>{item.name}</Text>
+                      <View style={[
+                        styles.memberRoleBadge,
+                        item.role === 'host' && styles.memberRoleBadgeHost
+                      ]}>
+                        <Text style={[
+                          styles.memberRoleText,
+                          item.role === 'host' && styles.memberRoleTextHost
+                        ]}>
+                          {item.role === 'host' ? 'Host' : 'Member'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.membersEmptyText}>No members found</Text>
+                }
+                style={styles.membersList}
               />
             </View>
           </View>
@@ -963,6 +1059,108 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   notificationEmptyText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
+    paddingVertical: 40,
+  },
+  membersModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'flex-end',
+  },
+  membersModalContent: {
+    backgroundColor: '#111',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingBottom: 40,
+    maxHeight: '80%',
+  },
+  membersModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  membersModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    marginHorizontal: 20,
+    marginTop: 15,
+    marginBottom: 10,
+    paddingHorizontal: 15,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    paddingVertical: 12,
+  },
+  membersList: {
+    paddingHorizontal: 20,
+  },
+  memberItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    padding: 15,
+    borderRadius: 15,
+    marginVertical: 6,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  memberAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 15,
+  },
+  memberInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  memberName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  memberRoleBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  memberRoleBadgeHost: {
+    backgroundColor: '#C3F73A',
+  },
+  memberRoleText: {
+    color: '#999',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  memberRoleTextHost: {
+    color: '#000',
+  },
+  membersEmptyText: {
     color: '#666',
     fontSize: 16,
     textAlign: 'center',
