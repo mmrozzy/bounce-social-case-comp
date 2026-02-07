@@ -1,8 +1,11 @@
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
+
+// Current user identifier (will be replaced with actual auth later)
+const CURRENT_USER_ID = 'currentUser';
 
 interface GroupProfileProps {
   group: {
@@ -11,6 +14,7 @@ interface GroupProfileProps {
     members: number;
     image: string;
     banner?: string;
+    createdBy: string;
   };
   onBack: () => void;
 }
@@ -101,9 +105,12 @@ const SAMPLE_SPLITS: Split[] = [
 export default function GroupProfile({ group, onBack }: GroupProfileProps) {
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showCreateSplit, setShowCreateSplit] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([...SAMPLE_EVENTS, ...SAMPLE_SPLITS]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set(['2'])); // '2' is the user's own event
+  
+  const isGroupCreator = group.createdBy === CURRENT_USER_ID;
 
   const handleCreateEvent = (eventName: string, amount: string, deadline: string) => {
     const newEvent: Event = {
@@ -192,14 +199,25 @@ export default function GroupProfile({ group, onBack }: GroupProfileProps) {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        {/* Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={onBack}
-        >
-          <Ionicons name="arrow-back" size={24} color="#C3F73A" />
-          <Text style={styles.backText}>Groups</Text>
-        </TouchableOpacity>
+        {/* Header with Back Button and Bell */}
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={onBack}
+          >
+            <Ionicons name="arrow-back" size={24} color="#C3F73A" />
+            <Text style={styles.backText}>Groups</Text>
+          </TouchableOpacity>
+          
+          {isGroupCreator && (
+            <TouchableOpacity 
+              style={styles.bellButton}
+              onPress={() => setShowNotificationModal(true)}
+            >
+              <Ionicons name="notifications" size={24} color="#C3F73A" />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Banner */}
         {group.banner ? (
@@ -446,6 +464,56 @@ export default function GroupProfile({ group, onBack }: GroupProfileProps) {
           </TouchableOpacity>
         </Modal>
       )}
+
+      {/* Notification Modal */}
+      {showNotificationModal && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowNotificationModal(false)}
+        >
+          <View style={styles.notificationModalOverlay}>
+            <View style={styles.notificationModalContent}>
+              <View style={styles.notificationModalHeader}>
+                <Text style={styles.notificationModalTitle}>Send Notification</Text>
+                <TouchableOpacity onPress={() => setShowNotificationModal(false)}>
+                  <Ionicons name="close" size={28} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.notificationModalSubtitle}>Select an event to notify members about:</Text>
+              
+              <FlatList
+                data={activities.filter(a => a.type === 'event') as Event[]}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.notificationEventItem}
+                    onPress={() => {
+                      // TODO: Backend integration - send notification to all group members
+                      setShowNotificationModal(false);
+                      // For now, just close the modal
+                    }}
+                  >
+                    <View style={styles.notificationEventInfo}>
+                      <Text style={styles.notificationEventName}>{item.eventName}</Text>
+                      <Text style={styles.notificationEventDetails}>
+                        ${item.amount} • {item.deadline}
+                      </Text>
+                    </View>
+                    <Ionicons name="send" size={24} color="#C3F73A" />
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.notificationEmptyText}>No events to notify about</Text>
+                }
+                style={styles.notificationEventList}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -458,11 +526,20 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 15,
+  },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
     gap: 10,
+  },
+  bellButton: {
+    padding: 10,
   },
   backText: {
     color: '#C3F73A',
@@ -812,5 +889,72 @@ const styles = StyleSheet.create({
     color: '#C3F73A',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  notificationModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'flex-end',
+  },
+  notificationModalContent: {
+    backgroundColor: '#111',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingBottom: 40,
+    maxHeight: '70%',
+  },
+  notificationModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  notificationModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  notificationModalSubtitle: {
+    fontSize: 14,
+    color: '#999',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 10,
+  },
+  notificationEventList: {
+    paddingHorizontal: 20,
+  },
+  notificationEventItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    padding: 15,
+    borderRadius: 15,
+    marginVertical: 6,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  notificationEventInfo: {
+    flex: 1,
+  },
+  notificationEventName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  notificationEventDetails: {
+    color: '#999',
+    fontSize: 14,
+  },
+  notificationEmptyText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
+    paddingVertical: 40,
   },
 });

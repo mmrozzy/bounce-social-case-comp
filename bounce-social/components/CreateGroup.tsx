@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 interface CreateGroupProps {
   onBack: () => void;
-  onCreateGroup: (groupName: string, banner: string, profilePic: string, password: string) => void;
+  onCreateGroup: (groupName: string, banner: string | null, profilePic: string | null, password: string) => void;
 }
 
 export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps) {
@@ -50,11 +50,11 @@ export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps)
   };
 
   const handleCreate = () => {
-    if (groupName.trim() && password.trim() && bannerImage && profileImage) {
-      onCreateGroup(groupName, bannerImage, profileImage, password);
+    if (groupName.trim()) {
+      onCreateGroup(groupName, bannerImage, profileImage, password.trim() || '');
       onBack();
     } else {
-      Alert.alert('Missing Information', 'Please fill in all fields and upload both images.');
+      Alert.alert('Missing Information', 'Please enter a group name.');
     }
   };
 
@@ -72,7 +72,7 @@ export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps)
       <ScrollView style={styles.scrollView}>
         {/* Banner Upload */}
         <View style={styles.section}>
-          <Text style={styles.label}>Group Banner</Text>
+          <Text style={styles.label}>Group Banner (Optional)</Text>
           <TouchableOpacity style={styles.bannerUpload} onPress={pickBannerImage}>
             {bannerImage ? (
               <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
@@ -87,7 +87,7 @@ export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps)
 
         {/* Profile Picture Upload */}
         <View style={styles.section}>
-          <Text style={styles.label}>Group Picture</Text>
+          <Text style={styles.label}>Group Picture (Optional)</Text>
           <TouchableOpacity style={styles.profileUpload} onPress={pickProfileImage}>
             {profileImage ? (
               <Image source={{ uri: profileImage }} style={styles.profilePreview} />
@@ -114,22 +114,22 @@ export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps)
 
         {/* Password */}
         <View style={styles.section}>
-          <Text style={styles.label}>Group Password</Text>
+          <Text style={styles.label}>Group Password (Optional)</Text>
           <TextInput
             style={styles.input}
-            placeholder="Required to join group"
+            placeholder="Leave empty for open group"
             placeholderTextColor="#666"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
           />
-          <Text style={styles.helperText}>Members will need this password to join</Text>
+          <Text style={styles.helperText}>Leave empty if anyone can join without a password</Text>
         </View>
 
         <TouchableOpacity 
-          style={[styles.createButton, (!groupName.trim() || !password.trim() || !bannerImage || !profileImage) && styles.createButtonDisabled]}
+          style={[styles.createButton, !groupName.trim() && styles.createButtonDisabled]}
           onPress={handleCreate}
-          disabled={!groupName.trim() || !password.trim() || !bannerImage || !profileImage}
+          disabled={!groupName.trim()}
         >
           <Ionicons name="checkmark-circle" size={24} color="#000" />
           <Text style={styles.createButtonText}>Create Group</Text>

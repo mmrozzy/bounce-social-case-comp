@@ -4,22 +4,26 @@ import { Ionicons } from '@expo/vector-icons';
 import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
 
+// Current user identifier (will be replaced with actual auth later)
+const CURRENT_USER_ID = 'currentUser';
+
 interface Group {
   id: string;
   name: string;
   members: number;
   image: string;
   banner?: string;
+  createdBy: string;
 }
 
 const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
 
 // Initial sample groups
 const INITIAL_GROUPS: Group[] = [
-  { id: '1', name: 'Basketball Crew', members: 24, image: 'https://via.placeholder.com/60' },
-  { id: '2', name: 'Friday Night Football', members: 18, image: 'https://via.placeholder.com/60' },
-  { id: '3', name: 'Tennis Club', members: 12, image: 'https://via.placeholder.com/60' },
-  { id: '4', name: 'Morning Runners', members: 31, image: 'https://via.placeholder.com/60' },
+  { id: '1', name: 'Basketball Crew', members: 24, image: 'https://via.placeholder.com/60', createdBy: 'otherUser1' },
+  { id: '2', name: 'Friday Night Football', members: 18, image: 'https://via.placeholder.com/60', createdBy: 'otherUser2' },
+  { id: '3', name: 'Tennis Club', members: 12, image: 'https://via.placeholder.com/60', createdBy: 'otherUser3' },
+  { id: '4', name: 'Morning Runners', members: 31, image: 'https://via.placeholder.com/60', createdBy: 'otherUser4' },
 ];
 
 export default function GroupsScreen() {
@@ -27,13 +31,14 @@ export default function GroupsScreen() {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
 
-  const handleCreateGroup = (groupName: string, banner: string, profilePic: string, password: string) => {
+  const handleCreateGroup = (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
     const newGroup: Group = {
       id: Date.now().toString(),
       name: groupName,
       members: 1, // Creator is the first member
-      image: profilePic,
-      banner: banner,
+      image: profilePic || 'https://via.placeholder.com/60',
+      banner: banner || undefined,
+      createdBy: CURRENT_USER_ID,
     };
     setGroups([...groups, newGroup]);
     setShowCreateGroup(false);
