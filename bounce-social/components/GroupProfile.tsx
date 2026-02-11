@@ -7,7 +7,7 @@ import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { getGroupData } from '@/data/groupMockData';
 
 // Current user identifier (will be replaced with actual auth later)
-const CURRENT_USER_ID = 'currentUser';
+const CURRENT_USER_ID = 'current-user';
 
 interface GroupProfileProps {
   group: {
@@ -59,70 +59,60 @@ interface Member {
 
 // Sample members
 const SAMPLE_MEMBERS: Member[] = [
-  { id: '1', name: 'You', avatar: 'https://via.placeholder.com/50', role: 'host' },
-  { id: '2', name: 'John Smith', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '3', name: 'Sarah Johnson', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '4', name: 'Mike Davis', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '5', name: 'Emma Wilson', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '6', name: 'Chris Brown', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '7', name: 'Lisa Anderson', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '8', name: 'Tom Martinez', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'current-user', name: 'You', avatar: 'https://via.placeholder.com/50', role: 'host' },
+  { id: 'user-2', name: 'Alex Chen', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-3', name: 'Maya Patel', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-4', name: 'Jordan Lee', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-5', name: 'Taylor Swift', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-6', name: 'Sam Rodriguez', avatar: 'https://via.placeholder.com/50', role: 'member' },
 ];
 
-// Sample events
-const SAMPLE_EVENTS: Event[] = [
-  { 
-    id: '1', 
-    eventName: 'Friday Basketball Game', 
-    amount: '15', 
-    creator: 'John', 
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '10:30 AM',
-    isOwn: false,
-    attendees: 8,
-    deadline: 'Feb 10, 6:00 PM',
-    type: 'event'
-  },
-  { 
-    id: '2', 
-    eventName: 'Weekend Tournament', 
-    amount: '25', 
-    creator: 'You', 
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '11:15 AM',
-    isOwn: true,
-    attendees: 12,
-    deadline: 'Feb 14, 5:00 PM',
-    type: 'event'
-  },
-  { 
-    id: '3', 
-    eventName: 'Sunday Practice Session', 
-    amount: '10', 
-    creator: 'Sarah', 
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '2:20 PM',
-    isOwn: false,
-    attendees: 5,
-    deadline: 'Feb 15, 12:00 PM',
-    type: 'event'
-  },
-];
-
-const SAMPLE_SPLITS: Split[] = [
-  {
-    id: '4',
-    eventName: 'Court Rental',
-    totalAmount: '100',
-    creator: 'Mike',
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '1:45 PM',
-    isOwn: false,
-    participants: 4,
-    deadline: 'Feb 12, 8:00 PM',
-    type: 'split'
-  },
-];
+// Function to convert real events and transactions to activities format
+const convertEventsToActivities = (events: any[], transactions: any[]): Activity[] => {
+  const activities: Activity[] = [];
+  
+  // Convert events to activities
+  events.forEach(event => {
+    const eventTransactions = transactions.filter(t => t.eventId === event.id);
+    const isOwn = event.createdBy === 'current-user';
+    const amount = eventTransactions.length > 0 ? eventTransactions[0].totalAmount?.toString() || '0' : '0';
+    const creatorName = event.createdBy === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === event.createdBy)?.name || 'Unknown';
+    
+    activities.push({
+      id: event.id,
+      eventName: event.name,
+      amount: amount,
+      creator: creatorName,
+      creatorAvatar: 'https://via.placeholder.com/40',
+      time: new Date(event.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      isOwn: isOwn,
+      attendees: event.participants.length,
+      deadline: new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'event'
+    });
+  });
+  
+  // Convert split transactions to split activities
+  transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
+    const isOwn = transaction.from === 'current-user';
+    const creatorName = transaction.from === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === transaction.from)?.name || 'Unknown';
+    
+    activities.push({
+      id: transaction.id,
+      eventName: transaction.note || 'Split Payment',
+      totalAmount: transaction.totalAmount.toString(),
+      creator: creatorName,
+      creatorAvatar: 'https://via.placeholder.com/40',
+      time: new Date(transaction.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      isOwn: isOwn,
+      participants: transaction.participants?.length || 0,
+      deadline: new Date(transaction.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'split'
+    });
+  });
+  
+  return activities.sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime());
+};
 
 export default function GroupProfile({ group, onBack, initialActivityId }: GroupProfileProps) {
   const [showCreateEvent, setShowCreateEvent] = useState(false);
@@ -130,9 +120,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activities, setActivities] = useState<Activity[]>([...SAMPLE_EVENTS, ...SAMPLE_SPLITS]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set(['2'])); // '2' is the user's own event
   const [members] = useState<Member[]>(SAMPLE_MEMBERS);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
   
@@ -149,6 +137,13 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         [groupData.group]
       )
     : null;
+
+  // Convert real events to activities format
+  const initialActivities = groupData ? convertEventsToActivities(groupData.events, groupData.transactions) : [];
+  const [activities, setActivities] = useState<Activity[]>(initialActivities);
+  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(
+    new Set(initialActivities.filter(a => a.isOwn).map(a => a.id))
+  );
   
   const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase())

@@ -8,7 +8,7 @@ import CreateGroup from '@/components/CreateGroup';
 import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
 
 // Current user identifier (will be replaced with actual auth later)
-const CURRENT_USER_ID = 'currentUser';
+const CURRENT_USER_ID = 'current-user';
 
 interface Group {
   id: string;
@@ -23,10 +23,7 @@ const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
 
 // Initial sample groups (matching mock data)
 const INITIAL_GROUPS: Group[] = [
-  { id: 'group-1', name: 'Basketball Crew', members: 6, image: 'https://via.placeholder.com/60', createdBy: 'currentUser' },
-  { id: 'group-2', name: 'Friday Night Football', members: 5, image: 'https://via.placeholder.com/60', createdBy: 'currentUser' },
-  { id: 'group-3', name: 'Brunch Squad', members: 3, image: 'https://via.placeholder.com/60', createdBy: 'currentUser' },
-  { id: '4', name: 'Morning Runners', members: 31, image: 'https://via.placeholder.com/60', createdBy: 'otherUser4' },
+  { id: 'group-1', name: 'Basketball Crew', members: 6, image: 'https://via.placeholder.com/60', createdBy: 'current-user' },
 ];
 
 export default function GroupsScreen() {

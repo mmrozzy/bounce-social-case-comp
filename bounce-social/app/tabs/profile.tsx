@@ -24,8 +24,7 @@ interface RecentAction {
 
 // Sample group data for navigation
 const SAMPLE_GROUPS = [
-  { id: '1', name: 'Basketball Crew', members: 24, image: 'https://via.placeholder.com/60', createdBy: 'otherUser1' },
-  { id: '2', name: 'Friday Night Football', members: 18, image: 'https://via.placeholder.com/60', createdBy: 'otherUser2' },
+  { id: 'group-1', name: 'Basketball Crew', members: 6, image: 'https://via.placeholder.com/60', createdBy: 'currentUser' },
 ];
 
 // Sample recent actions
@@ -33,38 +32,38 @@ const RECENT_ACTIONS: RecentAction[] = [
   {
     id: '1',
     type: 'created_event',
-    activityName: 'Weekend Tournament',
+    activityName: 'Championship Game',
     groupName: 'Basketball Crew',
-    groupId: '1',
-    activityId: '2',
-    timestamp: '2h ago',
-  },
-  {
-    id: '2',
-    type: 'joined_event',
-    activityName: 'Friday Basketball Game',
-    groupName: 'Basketball Crew',
-    groupId: '1',
-    activityId: '1',
-    timestamp: '5h ago',
-  },
-  {
-    id: '3',
-    type: 'joined_split',
-    activityName: 'Court Rental Split',
-    groupName: 'Friday Night Football',
-    groupId: '2',
-    activityId: '4',
+    groupId: 'group-1',
+    activityId: 'event-7',
     timestamp: '1d ago',
   },
   {
-    id: '4',
-    type: 'created_split',
-    activityName: 'Equipment Split',
+    id: '2',
+    type: 'created_event',
+    activityName: 'Weekend Tournament',
     groupName: 'Basketball Crew',
-    groupId: '1',
-    activityId: '5',
-    timestamp: '2d ago',
+    groupId: 'group-1',
+    activityId: 'event-2',
+    timestamp: '3w ago',
+  },
+  {
+    id: '3',
+    type: 'created_event',
+    activityName: 'Practice Session',
+    groupName: 'Basketball Crew',
+    groupId: 'group-1',
+    activityId: 'event-4',
+    timestamp: '2w ago',
+  },
+  {
+    id: '4',
+    type: 'joined_event',
+    activityName: 'Friday Basketball Game',
+    groupName: 'Basketball Crew',
+    groupId: 'group-1',
+    activityId: 'event-1',
+    timestamp: '1mo ago',
   },
 ];
 
