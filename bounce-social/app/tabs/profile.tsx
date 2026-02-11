@@ -8,6 +8,7 @@ import { setNavigationTarget } from '@/lib/navigationState';
 import { PersonaBadge } from '@/components/PersonaBadge';
 import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
 import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages } from '@/lib/database';
+import { useImageCache } from '@/lib/ImageCacheContext';
 
 interface RecentAction {
   id: string;
@@ -47,6 +48,7 @@ const getActionIcon = (type: RecentAction['type']) => {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { getUserImages, updateUserImages: updateCacheUserImages } = useImageCache();
   const [bannerImage, setBannerImage] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
@@ -177,8 +179,16 @@ export default function ProfileScreen() {
     userGroups
   ) : null;
 
-  // Load saved images on mount
+  // Load cached images immediately, then check for updates
   useEffect(() => {
+    // Load from cache instantly
+    const cachedImages = getUserImages('current-user');
+    if (cachedImages) {
+      if (cachedImages.bannerImage) setBannerImage(cachedImages.bannerImage);
+      if (cachedImages.profileImage) setProfileImage(cachedImages.profileImage);
+    }
+    
+    // Then check database for any updates
     loadImages();
     requestPermissions();
   }, []);
@@ -193,8 +203,15 @@ export default function ProfileScreen() {
   const loadImages = async () => {
     try {
       const user = await getUserById('current-user');
-      if (user.bannerImage) setBannerImage(user.bannerImage);
-      if (user.profileImage) setProfileImage(user.profileImage);
+      // Only update if images changed
+      if (user.bannerImage && user.bannerImage !== bannerImage) {
+        setBannerImage(user.bannerImage);
+        updateCacheUserImages('current-user', undefined, user.bannerImage);
+      }
+      if (user.profileImage && user.profileImage !== profileImage) {
+        setProfileImage(user.profileImage);
+        updateCacheUserImages('current-user', user.profileImage, undefined);
+      }
     } catch (error) {
       console.error('Error loading images:', error);
     }
@@ -220,6 +237,7 @@ export default function ProfileScreen() {
         
         // Update database with new URL
         await updateUserImages('current-user', undefined, publicUrl);
+        updateCacheUserImages('current-user', undefined, publicUrl);
         setBannerImage(publicUrl);
       } catch (error) {
         console.error('Error uploading banner:', error);
@@ -248,6 +266,7 @@ export default function ProfileScreen() {
         
         // Update database with new URL
         await updateUserImages('current-user', publicUrl, undefined);
+        updateCacheUserImages('current-user', publicUrl, undefined);
         setProfileImage(publicUrl);
       } catch (error) {
         console.error('Error uploading profile image:', error);

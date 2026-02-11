@@ -6,6 +6,7 @@ import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
+import { useImageCache } from '@/lib/ImageCacheContext';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -113,6 +114,7 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
 };
 
 export default function GroupProfile({ group, onBack, initialActivityId }: GroupProfileProps) {
+  const { getGroupImages, updateGroupImages: updateCacheGroupImages } = useImageCache();
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showCreateSplit, setShowCreateSplit] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
@@ -133,16 +135,31 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  // Load saved images on mount
+  // Load cached images immediately, then check for updates
   useEffect(() => {
+    // Load from cache instantly
+    const cachedImages = getGroupImages(group.id);
+    if (cachedImages) {
+      if (cachedImages.bannerImage) setBannerImage(cachedImages.bannerImage);
+      if (cachedImages.profileImage) setProfileImage(cachedImages.profileImage);
+    }
+    
+    // Then check database for any updates
     loadGroupImages();
   }, [group.id]);
 
   const loadGroupImages = async () => {
     try {
       const groupData = await getGroupById(group.id);
-      if (groupData.bannerImage) setBannerImage(groupData.bannerImage);
-      if (groupData.profileImage) setProfileImage(groupData.profileImage);
+      // Only update if images changed
+      if (groupData.bannerImage && groupData.bannerImage !== bannerImage) {
+        setBannerImage(groupData.bannerImage);
+        updateCacheGroupImages(group.id, undefined, groupData.bannerImage);
+      }
+      if (groupData.profileImage && groupData.profileImage !== profileImage) {
+        setProfileImage(groupData.profileImage);
+        updateCacheGroupImages(group.id, groupData.profileImage, undefined);
+      }
     } catch (error) {
       console.error('Error loading group images:', error);
     }
@@ -173,6 +190,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         
         // Update database with new URL
         await updateGroupImages(group.id, undefined, publicUrl);
+        updateCacheGroupImages(group.id, undefined, publicUrl);
         setBannerImage(publicUrl);
       } catch (error) {
         console.error('Error uploading banner:', error);
@@ -207,6 +225,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         
         // Update database with new URL
         await updateGroupImages(group.id, publicUrl, undefined);
+        updateCacheGroupImages(group.id, publicUrl, undefined);
         setProfileImage(publicUrl);
       } catch (error) {
         console.error('Error uploading profile image:', error);

@@ -7,6 +7,7 @@ import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
 import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
 import { getGroups, createGroup } from '@/lib/database';
+import { useImageCache } from '@/lib/ImageCacheContext';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -24,6 +25,7 @@ const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
 
 export default function GroupsScreen() {
   const navigation = useNavigation();
+  const { getGroupImages } = useImageCache();
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(undefined);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -52,15 +54,18 @@ export default function GroupsScreen() {
     try {
       setLoading(true);
       const groupsData = await getGroups();
-      // Convert to the format expected by the UI
-      const formattedGroups: Group[] = groupsData.map((g: any) => ({
-        id: g.id,
-        name: g.name,
-        members: g.members.length,
-        image: g.profileImage || 'https://via.placeholder.com/60',
-        banner: g.bannerImage,
-        createdBy: g.members[0] || 'current-user' // First member is creator
-      }));
+      // Convert to the format expected by the UI, using cached images
+      const formattedGroups: Group[] = groupsData.map((g: any) => {
+        const cachedImages = getGroupImages(g.id);
+        return {
+          id: g.id,
+          name: g.name,
+          members: g.members.length,
+          image: cachedImages?.profileImage || g.profileImage || 'https://via.placeholder.com/60',
+          banner: cachedImages?.bannerImage || g.bannerImage,
+          createdBy: g.members[0] || 'current-user' // First member is creator
+        };
+      });
       setGroups(formattedGroups);
     } catch (error) {
       console.error('Error loading groups:', error);
