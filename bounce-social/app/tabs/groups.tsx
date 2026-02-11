@@ -6,6 +6,7 @@ import { useCallback } from 'react';
 import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
 import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
+import { getGroups, createGroup } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -21,16 +22,37 @@ interface Group {
 
 const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
 
-// Initial sample groups (matching mock data)
-const INITIAL_GROUPS: Group[] = [
-  { id: 'group-1', name: 'Basketball Crew', members: 6, image: 'https://via.placeholder.com/60', createdBy: 'current-user' },
-];
-
 export default function GroupsScreen() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(undefined);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load groups from Supabase
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      const groupsData = await getGroups();
+      // Convert to the format expected by the UI
+      const formattedGroups: Group[] = groupsData.map(g => ({
+        id: g.id,
+        name: g.name,
+        members: g.members.length,
+        image: 'https://via.placeholder.com/60',
+        createdBy: g.members[0] || 'current-user' // First member is creator
+      }));
+      setGroups(formattedGroups);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Listen for navigation from other tabs
   useFocusEffect(
@@ -47,17 +69,17 @@ export default function GroupsScreen() {
     }, [groups])
   );
 
-  const handleCreateGroup = (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
-    const newGroup: Group = {
-      id: Date.now().toString(),
-      name: groupName,
-      members: 1, // Creator is the first member
-      image: profilePic || 'https://via.placeholder.com/60',
-      banner: banner || undefined,
-      createdBy: CURRENT_USER_ID,
-    };
-    setGroups([...groups, newGroup]);
-    setShowCreateGroup(false);
+  const handleCreateGroup = async (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
+    try {
+      // TODO: Replace 'current-user' with actual authenticated user ID
+      await createGroup(groupName, [CURRENT_USER_ID]);
+      // Reload groups to show the new one
+      await loadGroups();
+      setShowCreateGroup(false);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      // Optionally show an error message to the user
+    }
   };
 
   if (showCreateGroup) {
@@ -86,19 +108,24 @@ export default function GroupsScreen() {
   // Group List View
   return (
     <View style={styles.container}>
-      <FlatList
-        data={groups}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <TouchableOpacity 
-            style={styles.createGroupButton}
-            onPress={() => setShowCreateGroup(true)}
-          >
-            <Ionicons name="add-circle" size={24} color="#000" />
-            <Text style={styles.createGroupButtonText}>Create New Group</Text>
-          </TouchableOpacity>
-        }
-        renderItem={({ item, index }) => (
+      {loading ? (
+        <View style={[styles.container, styles.centerContent]}>
+          <Text style={styles.loadingText}>Loading groups...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <TouchableOpacity 
+              style={styles.createGroupButton}
+              onPress={() => setShowCreateGroup(true)}
+            >
+              <Ionicons name="add-circle" size={24} color="#000" />
+              <Text style={styles.createGroupButtonText}>Create New Group</Text>
+            </TouchableOpacity>
+          }
+          renderItem={({ item, index }) => (
           <TouchableOpacity 
             style={styles.groupItem}
             onPress={() => setSelectedGroup(item)}
@@ -122,6 +149,7 @@ export default function GroupsScreen() {
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
+      )}
     </View>
   );
 }
@@ -210,5 +238,13 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#C3F73A',
+    fontSize: 16,
   },
 });

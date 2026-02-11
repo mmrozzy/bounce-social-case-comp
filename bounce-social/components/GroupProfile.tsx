@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData } from '@/data/groupMockData';
+import { getGroupData, createEvent, createTransaction } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -69,7 +69,7 @@ const SAMPLE_MEMBERS: Member[] = [
 
 // Function to convert real events and transactions to activities format
 const convertEventsToActivities = (events: any[], transactions: any[]): Activity[] => {
-  const activities: Activity[] = [];
+  const activities: Array<Activity & { dateObj: Date }> = [];
   
   // Convert events to activities
   events.forEach(event => {
@@ -77,6 +77,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
     const isOwn = event.createdBy === 'current-user';
     const amount = eventTransactions.length > 0 ? eventTransactions[0].totalAmount?.toString() || '0' : '0';
     const creatorName = event.createdBy === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === event.createdBy)?.name || 'Unknown';
+    const eventDate = new Date(event.date);
     
     activities.push({
       id: event.id,
@@ -84,11 +85,12 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
       amount: amount,
       creator: creatorName,
       creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date(event.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      time: eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       isOwn: isOwn,
       attendees: event.participants.length,
-      deadline: new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
-      type: 'event'
+      deadline: eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'event',
+      dateObj: eventDate,
     });
   });
   
@@ -96,6 +98,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
     const creatorName = transaction.from === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === transaction.from)?.name || 'Unknown';
+    const splitDate = new Date(transaction.createdAt);
     
     activities.push({
       id: transaction.id,
@@ -103,15 +106,19 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
       totalAmount: transaction.totalAmount.toString(),
       creator: creatorName,
       creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date(transaction.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      time: splitDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       isOwn: isOwn,
       participants: transaction.participants?.length || 0,
-      deadline: new Date(transaction.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
-      type: 'split'
+      deadline: splitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'split',
+      dateObj: splitDate,
     });
   });
   
-  return activities.sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime());
+  // Sort by actual date (most recent first) and remove dateObj
+  return activities
+    .sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime())
+    .map(({ dateObj, ...activity }) => activity as Activity);
 };
 
 export default function GroupProfile({ group, onBack, initialActivityId }: GroupProfileProps) {
@@ -126,24 +133,42 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
 
-  // Get group data and calculate persona
-  const groupData = getGroupData(group.id);
-  const groupPersona = groupData 
-    ? analyzeGroupPersona(
-        group.id,
-        groupData.members,
-        groupData.transactions,
-        groupData.events,
-        [groupData.group]
-      )
-    : null;
+  // State for group data
+  const [groupData, setGroupData] = useState<any>(null);
+  const [groupPersona, setGroupPersona] = useState<any>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
-  // Convert real events to activities format
-  const initialActivities = groupData ? convertEventsToActivities(groupData.events, groupData.transactions) : [];
-  const [activities, setActivities] = useState<Activity[]>(initialActivities);
-  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(
-    new Set(initialActivities.filter(a => a.isOwn).map(a => a.id))
-  );
+  // Fetch group data from Supabase
+  useEffect(() => {
+    async function loadGroupData() {
+      setLoading(true);
+      try {
+        const data = await getGroupData(group.id);
+        if (data) {
+          setGroupData(data);
+          const persona = analyzeGroupPersona(
+            group.id,
+            data.members,
+            data.transactions,
+            data.events,
+            [data.group]
+          );
+          setGroupPersona(persona);
+          
+          const acts = convertEventsToActivities(data.events, data.transactions);
+          setActivities(acts);
+          setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+        }
+      } catch (error) {
+        console.error('Error loading group data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadGroupData();
+  }, [group.id]);
   
   const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -159,38 +184,76 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
   }, [initialActivityId]);
 
-  const handleCreateEvent = (eventName: string, amount: string, deadline: string) => {
-    const newEvent: Event = {
-      id: Date.now().toString(),
-      eventName,
-      amount,
-      creator: 'You',
-      creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      isOwn: true,
-      attendees: 1,
-      deadline,
-      type: 'event',
-    };
-    setActivities([...activities, newEvent]);
-    setJoinedActivities(new Set([...joinedActivities, newEvent.id]));
+  const handleCreateEvent = async (eventName: string, amount: string, deadline: string) => {
+    try {
+      // For now, use current time + 1 day as event date (TODO: implement proper date picker)
+      const eventDate = new Date();
+      eventDate.setDate(eventDate.getDate() + 1);
+      
+      // Save to database
+      await createEvent(
+        group.id,
+        eventName,
+        eventDate.toISOString(), // Use ISO format for database
+        CURRENT_USER_ID,
+        [CURRENT_USER_ID] // Creator is the first participant
+      );
+
+      // Create transaction for the event
+      await createTransaction({
+        eventId: null, // Will be set after event is created
+        groupId: group.id,
+        type: 'event',
+        from: CURRENT_USER_ID,
+        totalAmount: parseFloat(amount),
+        participants: [CURRENT_USER_ID],
+      } as any);
+
+      // Reload group data to show the new event
+      const data = await getGroupData(group.id);
+      if (data) {
+        const acts = convertEventsToActivities(data.events, data.transactions);
+        setActivities(acts);
+        setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+      }
+      setShowCreateEvent(false);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      // TODO: Show error message to user
+    }
   };
 
-  const handleCreateSplit = (eventName: string, totalAmount: string, deadline: string) => {
-    const newSplit: Split = {
-      id: Date.now().toString(),
-      eventName,
-      totalAmount,
-      creator: 'You',
-      creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      isOwn: true,
-      participants: 1,
-      deadline,
-      type: 'split',
-    };
-    setActivities([...activities, newSplit]);
-    setJoinedActivities(new Set([...joinedActivities, newSplit.id]));
+  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: string) => {
+    try {
+      // Save split as a transaction to database
+      await createTransaction({
+        eventId: null,
+        groupId: group.id,
+        type: 'split',
+        from: CURRENT_USER_ID,
+        totalAmount: parseFloat(totalAmount),
+        note: eventName, // Save the split name in the note field
+        participants: [CURRENT_USER_ID],
+        splits: [{
+          userId: CURRENT_USER_ID,
+          paid: parseFloat(totalAmount),
+          owes: 0,
+          net: parseFloat(totalAmount)
+        }],
+      } as any);
+
+      // Reload group data to show the new split
+      const data = await getGroupData(group.id);
+      if (data) {
+        const acts = convertEventsToActivities(data.events, data.transactions);
+        setActivities(acts);
+        setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+      }
+      setShowCreateSplit(false);
+    } catch (error) {
+      console.error('Error creating split:', error);
+      // TODO: Show error message to user
+    }
   };
 
   const handleToggleJoinActivity = (activityId: string) => {
@@ -240,6 +303,15 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         onBack={() => setShowCreateSplit(false)} 
         onCreateSplit={handleCreateSplit}
       />
+    );
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.loadingText}>Loading group data...</Text>
+      </View>
     );
   }
 
@@ -320,7 +392,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 {/* Group Traits */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>✨ Group Vibe</Text>
-                  {groupPersona.groupTraits.map((trait, index) => (
+                  {groupPersona.groupTraits.map((trait: string, index: number) => (
                     <Text key={index} style={styles.traitText}>• {trait}</Text>
                   ))}
                 </View>
@@ -328,7 +400,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 {/* Persona Distribution */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>👥 Member Personas</Text>
-                  {groupPersona.personaDistribution.map((dist, index) => (
+                  {groupPersona.personaDistribution.map((dist: any, index: number) => (
                     <View key={index} style={styles.statRow}>
                       <Text style={styles.statLabel}>
                         {dist.emoji} {dist.personaKey.replace(/([A-Z])/g, ' $1').trim()}
@@ -448,7 +520,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         {/* Activities */}
         <View style={styles.chatSection}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
-          {[...activities].reverse().map((activity) => {
+          {activities.map((activity) => {
             const isEvent = activity.type === 'event';
             const isSplit = activity.type === 'split';
             const countText = isEvent 
@@ -1404,5 +1476,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     paddingVertical: 40,
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#C3F73A',
+    fontSize: 16,
   },
 });
