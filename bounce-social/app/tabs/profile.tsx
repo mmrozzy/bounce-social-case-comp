@@ -62,13 +62,14 @@ export default function ProfileScreen() {
 
   // Convert events and splits to recent actions
   const recentActions: RecentAction[] = (() => {
-    const actions: RecentAction[] = [];
+    const actions: Array<RecentAction & { dateObj: Date }> = [];
     
     // Add events
     userEvents.forEach(event => {
       const group = userGroups.find(g => g.id === event.groupId);
       const isCreator = event.createdBy === 'current-user';
-      const timeAgo = getTimeAgo(new Date(event.date));
+      const eventDate = new Date(event.date);
+      const timeAgo = getTimeAgo(eventDate);
       
       actions.push({
         id: event.id,
@@ -78,6 +79,7 @@ export default function ProfileScreen() {
         groupId: event.groupId,
         activityId: event.id,
         timestamp: timeAgo,
+        dateObj: eventDate,
       });
     });
     
@@ -87,7 +89,8 @@ export default function ProfileScreen() {
       .forEach(split => {
         const group = userGroups.find(g => g.id === split.groupId);
         const isCreator = split.from === 'current-user';
-        const timeAgo = getTimeAgo(new Date(split.createdAt));
+        const splitDate = new Date(split.createdAt);
+        const timeAgo = getTimeAgo(splitDate);
         
         actions.push({
           id: split.id,
@@ -97,16 +100,15 @@ export default function ProfileScreen() {
           groupId: split.groupId,
           activityId: split.id,
           timestamp: timeAgo,
+          dateObj: splitDate,
         });
       });
     
     // Sort by date (most recent first) and take top 10
     return actions
-      .sort((a, b) => {
-        // This is a simple sort - could be improved with actual dates
-        return 0; // For now, keep insertion order
-      })
-      .slice(0, 10);
+      .sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime())
+      .slice(0, 10)
+      .map(({ dateObj, ...action }) => action); // Remove dateObj from final result
   })();
 
   // Helper function to calculate time ago

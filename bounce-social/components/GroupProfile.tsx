@@ -69,7 +69,7 @@ const SAMPLE_MEMBERS: Member[] = [
 
 // Function to convert real events and transactions to activities format
 const convertEventsToActivities = (events: any[], transactions: any[]): Activity[] => {
-  const activities: Activity[] = [];
+  const activities: Array<Activity & { dateObj: Date }> = [];
   
   // Convert events to activities
   events.forEach(event => {
@@ -77,6 +77,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
     const isOwn = event.createdBy === 'current-user';
     const amount = eventTransactions.length > 0 ? eventTransactions[0].totalAmount?.toString() || '0' : '0';
     const creatorName = event.createdBy === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === event.createdBy)?.name || 'Unknown';
+    const eventDate = new Date(event.date);
     
     activities.push({
       id: event.id,
@@ -84,11 +85,12 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
       amount: amount,
       creator: creatorName,
       creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date(event.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      time: eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       isOwn: isOwn,
       attendees: event.participants.length,
-      deadline: new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
-      type: 'event'
+      deadline: eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'event',
+      dateObj: eventDate,
     });
   });
   
@@ -96,6 +98,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
     const creatorName = transaction.from === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === transaction.from)?.name || 'Unknown';
+    const splitDate = new Date(transaction.createdAt);
     
     activities.push({
       id: transaction.id,
@@ -103,15 +106,19 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
       totalAmount: transaction.totalAmount.toString(),
       creator: creatorName,
       creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date(transaction.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      time: splitDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       isOwn: isOwn,
       participants: transaction.participants?.length || 0,
-      deadline: new Date(transaction.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
-      type: 'split'
+      deadline: splitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'split',
+      dateObj: splitDate,
     });
   });
   
-  return activities.sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime());
+  // Sort by actual date (most recent first) and remove dateObj
+  return activities
+    .sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime())
+    .map(({ dateObj, ...activity }) => activity as Activity);
 };
 
 export default function GroupProfile({ group, onBack, initialActivityId }: GroupProfileProps) {
@@ -513,7 +520,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         {/* Activities */}
         <View style={styles.chatSection}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
-          {[...activities].reverse().map((activity) => {
+          {activities.map((activity) => {
             const isEvent = activity.type === 'event';
             const isSplit = activity.type === 'split';
             const countText = isEvent 
