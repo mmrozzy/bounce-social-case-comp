@@ -5,6 +5,9 @@ import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setNavigationTarget } from '@/lib/navigationState';
+import { PersonaBadge } from '@/components/PersonaBadge';
+import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
+import { currentUser, userGroups, userEvents, userTransactions } from '@/data/mockUserData';
 
 const PROFILE_BANNER_KEY = '@profile_banner';
 const PROFILE_IMAGE_KEY = '@profile_image';
@@ -95,6 +98,15 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [bannerImage, setBannerImage] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [showPersonaDetails, setShowPersonaDetails] = useState(false);
+
+  // Calculate user persona profile
+  const userProfile = analyzeUserProfile(
+    currentUser.id,
+    userTransactions,
+    userEvents,
+    userGroups
+  );
 
   // Load saved images on mount
   useEffect(() => {
@@ -218,6 +230,80 @@ export default function ProfileScreen() {
         {/* Greeting */}
         <Text style={styles.greeting}>Hello, Guillaume!</Text>
 
+        {/* Persona Badge */}
+        <TouchableOpacity 
+          style={styles.personaSection}
+          onPress={() => setShowPersonaDetails(!showPersonaDetails)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.personaHeader}>
+            <Text style={styles.personaBadgeEmoji}>{userProfile.emoji}</Text>
+            <View style={styles.personaInfo}>
+              <Text style={styles.personaType}>
+                {userProfile.type.replace(/([A-Z])/g, ' $1').trim()}
+              </Text>
+              <Text style={styles.personaDescription}>
+                {userProfile.description.split(' - ')[1]}
+              </Text>
+            </View>
+            <Ionicons 
+              name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
+              size={24} 
+              color="#C3F73A" 
+            />
+          </View>
+
+          {showPersonaDetails && (
+            <View style={styles.personaDetails}>
+              {/* Traits */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>✨ Your Traits</Text>
+                {userProfile.traits.map((trait, index) => (
+                  <Text key={index} style={styles.traitText}>• {trait}</Text>
+                ))}
+              </View>
+
+              {/* Stats */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>📊 Your Stats</Text>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Events Attended</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.eventsAttended}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Total Spent</Text>
+                  <Text style={styles.statValue}>${userProfile.stats.totalSpent.toFixed(2)}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Avg per Event</Text>
+                  <Text style={styles.statValue}>${userProfile.stats.avgEventCost.toFixed(2)}</Text>
+                </View>
+              </View>
+
+              {/* Behavioral Insights */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>🔍 Behavioral Insights</Text>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Avg Group Size</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.features.avgGroupSize.toFixed(1)} people</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Activity Level</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.features.eventsPerMonth.toFixed(1)} events/mo</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Generosity</Text>
+                  <Text style={styles.statValue}>{(userProfile.stats.features.generosityScore * 100).toFixed(0)}%</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Most Active</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.features.mostActiveHour}:00</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
+
         {/* Recent Actions Section */}
         <View style={styles.actionsSection}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
@@ -331,7 +417,74 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     marginTop: 10,
-    marginBottom: 30,
+    marginBottom: 20,
+  },
+  personaSection: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 25,
+    borderWidth: 2,
+    borderColor: '#C3F73A',
+  },
+  personaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  personaBadgeEmoji: {
+    fontSize: 48,
+    marginRight: 16,
+  },
+  personaInfo: {
+    flex: 1,
+  },
+  personaType: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    marginBottom: 4,
+    textTransform: 'capitalize',
+  },
+  personaDescription: {
+    fontSize: 14,
+    color: '#999',
+    lineHeight: 20,
+  },
+  personaDetails: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  detailSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  traitText: {
+    fontSize: 14,
+    color: '#ccc',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#999',
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C3F73A',
   },
   actionsSection: {
     marginTop: 10,
