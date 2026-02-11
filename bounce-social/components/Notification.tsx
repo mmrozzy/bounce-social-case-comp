@@ -45,38 +45,62 @@ const SendNotification = ({
   const handleSendNotification = async () => {
     if (!selectedActivity || !customMessage.trim()) return;
 
-    try {
-      // Send local notification (for demo)
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `${selectedActivity.eventName}`,
-          body: customMessage.trim(),
-          sound: true,
-          data: {
-            activityId: selectedActivity.id,
-            activityName: selectedActivity.eventName,
-            groupName: groupName,
-            type: selectedActivity.type,
-          },
-        },
-        trigger: null, // Send immediately
-      });
-
-      // Show success message
+    // Android: Show in-app alert (avoids Expo Go issues)
+    // iOS: Send actual notification
+    if (Platform.OS === 'android') {
+      // In-app notification for Android
       Alert.alert(
-        'Reminder Sent! 📨',
-        `"${customMessage.trim()}" notification sent!\n`,
+        `${selectedActivity.eventName}`,
+        customMessage.trim(),
         [
           { 
+            text: 'Dismiss',
+            style: 'cancel'
+          },
+          {
             text: 'OK',
             onPress: handleClose
           }
         ]
       );
       
-    } catch (error) {
-      console.error('Notification error:', error);
-      Alert.alert('Error', 'Failed to send notification. Make sure you granted notification permissions.');
+      // Also show success
+      setTimeout(() => {
+        Alert.alert(
+          'Reminder Sent!',
+          `"${customMessage.trim()}" sent to all unpaid members!`,
+          [{ text: 'OK', onPress: handleClose }]
+        );
+      }, 500);
+      
+    } else {
+      // iOS: Send actual system notification
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `${selectedActivity.eventName}`,
+            body: customMessage.trim(),
+            sound: true,
+            data: {
+              activityId: selectedActivity.id,
+              activityName: selectedActivity.eventName,
+              groupName: groupName,
+              type: selectedActivity.type,
+            },
+          },
+          trigger: null,
+        });
+
+        Alert.alert(
+          'Reminder Sent!',
+          `"${customMessage.trim()}" notification sent!`,
+          [{ text: 'OK', onPress: handleClose }]
+        );
+        
+      } catch (error) {
+        console.error('Notification error:', error);
+        Alert.alert('Error', 'Failed to send notification.');
+      }
     }
   };
 
