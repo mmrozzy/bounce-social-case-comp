@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
 import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
@@ -54,23 +53,13 @@ export default function GroupsScreen() {
       setLoading(true);
       const groupsData = await getGroups();
       // Convert to the format expected by the UI
-      const formattedGroups: Group[] = await Promise.all(groupsData.map(async (g) => {
-        // Try to load saved profile image for this group
-        let savedImage = 'https://via.placeholder.com/60';
-        try {
-          const storedImage = await AsyncStorage.getItem(`@group_profile_${g.id}`);
-          if (storedImage) savedImage = storedImage;
-        } catch (error) {
-          console.error('Error loading group image:', error);
-        }
-        
-        return {
-          id: g.id,
-          name: g.name,
-          members: g.members.length,
-          image: savedImage,
-          createdBy: g.members[0] || 'current-user' // First member is creator
-        };
+      const formattedGroups: Group[] = groupsData.map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        members: g.members.length,
+        image: g.profileImage || 'https://via.placeholder.com/60',
+        banner: g.bannerImage,
+        createdBy: g.members[0] || 'current-user' // First member is creator
       }));
       setGroups(formattedGroups);
     } catch (error) {

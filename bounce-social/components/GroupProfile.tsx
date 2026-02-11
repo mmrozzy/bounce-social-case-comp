@@ -2,11 +2,10 @@ import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, Fla
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction } from '@/lib/database';
+import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -141,10 +140,9 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
 
   const loadGroupImages = async () => {
     try {
-      const savedBanner = await AsyncStorage.getItem(`@group_banner_${group.id}`);
-      const savedProfile = await AsyncStorage.getItem(`@group_profile_${group.id}`);
-      if (savedBanner) setBannerImage(savedBanner);
-      if (savedProfile) setProfileImage(savedProfile);
+      const groupData = await getGroupById(group.id);
+      if (groupData.bannerImage) setBannerImage(groupData.bannerImage);
+      if (groupData.profileImage) setProfileImage(groupData.profileImage);
     } catch (error) {
       console.error('Error loading group images:', error);
     }
@@ -157,7 +155,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [16, 9],
       quality: 1,
@@ -167,9 +165,19 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       const uri = result.assets[0].uri;
       setBannerImage(uri);
       try {
-        await AsyncStorage.setItem(`@group_banner_${group.id}`, uri);
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `banner-${Date.now()}.jpg` },
+          'banners'
+        );
+        
+        // Update database with new URL
+        await updateGroupImages(group.id, undefined, publicUrl);
+        setBannerImage(publicUrl);
       } catch (error) {
-        console.error('Error saving banner:', error);
+        console.error('Error uploading banner:', error);
+        Alert.alert('Error', 'Failed to upload banner. Please try again.');
+        setBannerImage(group.banner || null);
       }
     }
   };
@@ -181,7 +189,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
@@ -191,9 +199,19 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       const uri = result.assets[0].uri;
       setProfileImage(uri);
       try {
-        await AsyncStorage.setItem(`@group_profile_${group.id}`, uri);
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `profile-${Date.now()}.jpg` },
+          'profiles'
+        );
+        
+        // Update database with new URL
+        await updateGroupImages(group.id, publicUrl, undefined);
+        setProfileImage(publicUrl);
       } catch (error) {
-        console.error('Error saving profile image:', error);
+        console.error('Error uploading profile image:', error);
+        Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+        setProfileImage(group.image);
       }
     }
   };
@@ -521,7 +539,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
             style={styles.profilePic}
           >
             <Image 
-              source={{ uri: profileImage }}
+              source={{ uri: profileImage || 'https://via.placeholder.com/150' }}
               style={styles.profileImage}
             />
           </TouchableOpacity>

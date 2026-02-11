@@ -4,14 +4,10 @@ import { useRouter } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setNavigationTarget } from '@/lib/navigationState';
 import { PersonaBadge } from '@/components/PersonaBadge';
 import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
-import { getUserById, getGroups, getEvents, getTransactions } from '@/lib/database';
-
-const PROFILE_BANNER_KEY = '@profile_banner';
-const PROFILE_IMAGE_KEY = '@profile_image';
+import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages } from '@/lib/database';
 
 interface RecentAction {
   id: string;
@@ -196,10 +192,9 @@ export default function ProfileScreen() {
 
   const loadImages = async () => {
     try {
-      const savedBanner = await AsyncStorage.getItem(PROFILE_BANNER_KEY);
-      const savedProfile = await AsyncStorage.getItem(PROFILE_IMAGE_KEY);
-      if (savedBanner) setBannerImage(savedBanner);
-      if (savedProfile) setProfileImage(savedProfile);
+      const user = await getUserById('current-user');
+      if (user.bannerImage) setBannerImage(user.bannerImage);
+      if (user.profileImage) setProfileImage(user.profileImage);
     } catch (error) {
       console.error('Error loading images:', error);
     }
@@ -207,7 +202,7 @@ export default function ProfileScreen() {
 
   const pickBannerImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [16, 9],
       quality: 1,
@@ -217,16 +212,25 @@ export default function ProfileScreen() {
       const uri = result.assets[0].uri;
       setBannerImage(uri);
       try {
-        await AsyncStorage.setItem(PROFILE_BANNER_KEY, uri);
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `banner-${Date.now()}.jpg` },
+          'banners'
+        );
+        
+        // Update database with new URL
+        await updateUserImages('current-user', undefined, publicUrl);
+        setBannerImage(publicUrl);
       } catch (error) {
-        console.error('Error saving banner:', error);
+        console.error('Error uploading banner:', error);
+        Alert.alert('Error', 'Failed to upload banner. Please try again.');
       }
     }
   };
 
   const pickProfileImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
@@ -236,9 +240,18 @@ export default function ProfileScreen() {
       const uri = result.assets[0].uri;
       setProfileImage(uri);
       try {
-        await AsyncStorage.setItem(PROFILE_IMAGE_KEY, uri);
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `profile-${Date.now()}.jpg` },
+          'profiles'
+        );
+        
+        // Update database with new URL
+        await updateUserImages('current-user', publicUrl, undefined);
+        setProfileImage(publicUrl);
       } catch (error) {
-        console.error('Error saving profile image:', error);
+        console.error('Error uploading profile image:', error);
+        Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
       }
     }
   };

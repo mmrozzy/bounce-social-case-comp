@@ -2,6 +2,8 @@ export interface User {
   id: string
   name: string
   joinedGroups: string[]
+  profileImage?: string
+  bannerImage?: string
 }
 
 export interface Group {
@@ -9,6 +11,8 @@ export interface Group {
   name: string
   members: string[]
   createdAt: string
+  profileImage?: string
+  bannerImage?: string
 }
 
 export interface Event {
