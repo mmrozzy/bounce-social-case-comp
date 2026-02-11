@@ -135,7 +135,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  // Load cached images immediately, then check for updates
+  // Load cached images immediately, then check for updates in background
   useEffect(() => {
     // Load from cache instantly
     const cachedImages = getGroupImages(group.id);
@@ -144,25 +144,27 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       if (cachedImages.profileImage) setProfileImage(cachedImages.profileImage);
     }
     
-    // Then check database for any updates
+    // Check database for any updates in background (non-blocking)
     loadGroupImages();
   }, [group.id]);
 
-  const loadGroupImages = async () => {
-    try {
-      const groupData = await getGroupById(group.id);
-      // Only update if images changed
-      if (groupData.bannerImage && groupData.bannerImage !== bannerImage) {
-        setBannerImage(groupData.bannerImage);
-        updateCacheGroupImages(group.id, undefined, groupData.bannerImage);
-      }
-      if (groupData.profileImage && groupData.profileImage !== profileImage) {
-        setProfileImage(groupData.profileImage);
-        updateCacheGroupImages(group.id, groupData.profileImage, undefined);
-      }
-    } catch (error) {
-      console.error('Error loading group images:', error);
-    }
+  const loadGroupImages = () => {
+    // Run in background without blocking UI
+    getGroupById(group.id)
+      .then(groupData => {
+        // Only update if images changed
+        if (groupData.bannerImage && groupData.bannerImage !== bannerImage) {
+          setBannerImage(groupData.bannerImage);
+          updateCacheGroupImages(group.id, undefined, groupData.bannerImage);
+        }
+        if (groupData.profileImage && groupData.profileImage !== profileImage) {
+          setProfileImage(groupData.profileImage);
+          updateCacheGroupImages(group.id, groupData.profileImage, undefined);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading group images:', error);
+      });
   };
 
   const pickBannerImage = async () => {

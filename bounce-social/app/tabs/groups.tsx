@@ -154,25 +154,35 @@ export default function GroupsScreen() {
               <Text style={styles.createGroupButtonText}>Create New Group</Text>
             </TouchableOpacity>
           }
-          renderItem={({ item, index }) => (
-          <TouchableOpacity 
-            style={styles.groupItem}
-            onPress={() => setSelectedGroup(item)}
-          >
-            <View style={styles.groupItemImageContainer}>
-              {item.image.startsWith('file://') || item.image.startsWith('content://') ? (
-                <Image source={{ uri: item.image }} style={styles.groupItemImage} />
-              ) : (
-                <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
-              )}
-            </View>
-            <View style={styles.groupItemInfo}>
-              <Text style={styles.groupItemName}>{item.name}</Text>
-              <Text style={styles.groupItemMembers}>{item.members} members</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#666" />
-          </TouchableOpacity>
-        )}
+          renderItem={({ item, index }) => {
+            // Check if there's a valid image URL (http/https/file/content)
+            const hasValidImage = item.image && (
+              item.image.startsWith('http://') || 
+              item.image.startsWith('https://') || 
+              item.image.startsWith('file://') || 
+              item.image.startsWith('content://')
+            );
+            
+            return (
+              <TouchableOpacity 
+                style={styles.groupItem}
+                onPress={() => setSelectedGroup(item)}
+              >
+                <View style={styles.groupItemImageContainer}>
+                  {hasValidImage ? (
+                    <Image source={{ uri: item.image }} style={styles.groupItemImage} />
+                  ) : (
+                    <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
+                  )}
+                </View>
+                <View style={styles.groupItemInfo}>
+                  <Text style={styles.groupItemName}>{item.name}</Text>
+                  <Text style={styles.groupItemMembers}>{item.members} members</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#666" />
+              </TouchableOpacity>
+            );
+          }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
       )}

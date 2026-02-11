@@ -179,7 +179,7 @@ export default function ProfileScreen() {
     userGroups
   ) : null;
 
-  // Load cached images immediately, then check for updates
+  // Load cached images immediately, then check for updates in background
   useEffect(() => {
     // Load from cache instantly
     const cachedImages = getUserImages('current-user');
@@ -188,7 +188,7 @@ export default function ProfileScreen() {
       if (cachedImages.profileImage) setProfileImage(cachedImages.profileImage);
     }
     
-    // Then check database for any updates
+    // Check database for any updates in background (non-blocking)
     loadImages();
     requestPermissions();
   }, []);
@@ -200,21 +200,23 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadImages = async () => {
-    try {
-      const user = await getUserById('current-user');
-      // Only update if images changed
-      if (user.bannerImage && user.bannerImage !== bannerImage) {
-        setBannerImage(user.bannerImage);
-        updateCacheUserImages('current-user', undefined, user.bannerImage);
-      }
-      if (user.profileImage && user.profileImage !== profileImage) {
-        setProfileImage(user.profileImage);
-        updateCacheUserImages('current-user', user.profileImage, undefined);
-      }
-    } catch (error) {
-      console.error('Error loading images:', error);
-    }
+  const loadImages = () => {
+    // Run in background without blocking UI
+    getUserById('current-user')
+      .then(user => {
+        // Only update if images changed
+        if (user.bannerImage && user.bannerImage !== bannerImage) {
+          setBannerImage(user.bannerImage);
+          updateCacheUserImages('current-user', undefined, user.bannerImage);
+        }
+        if (user.profileImage && user.profileImage !== profileImage) {
+          setProfileImage(user.profileImage);
+          updateCacheUserImages('current-user', user.profileImage, undefined);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading images:', error);
+      });
   };
 
   const pickBannerImage = async () => {
