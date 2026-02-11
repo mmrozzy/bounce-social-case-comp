@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData } from '@/lib/database';
+import { getGroupData, createEvent, createTransaction } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -177,38 +177,76 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
   }, [initialActivityId]);
 
-  const handleCreateEvent = (eventName: string, amount: string, deadline: string) => {
-    const newEvent: Event = {
-      id: Date.now().toString(),
-      eventName,
-      amount,
-      creator: 'You',
-      creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      isOwn: true,
-      attendees: 1,
-      deadline,
-      type: 'event',
-    };
-    setActivities([...activities, newEvent]);
-    setJoinedActivities(new Set([...joinedActivities, newEvent.id]));
+  const handleCreateEvent = async (eventName: string, amount: string, deadline: string) => {
+    try {
+      // For now, use current time + 1 day as event date (TODO: implement proper date picker)
+      const eventDate = new Date();
+      eventDate.setDate(eventDate.getDate() + 1);
+      
+      // Save to database
+      await createEvent(
+        group.id,
+        eventName,
+        eventDate.toISOString(), // Use ISO format for database
+        CURRENT_USER_ID,
+        [CURRENT_USER_ID] // Creator is the first participant
+      );
+
+      // Create transaction for the event
+      await createTransaction({
+        eventId: null, // Will be set after event is created
+        groupId: group.id,
+        type: 'event',
+        from: CURRENT_USER_ID,
+        totalAmount: parseFloat(amount),
+        participants: [CURRENT_USER_ID],
+      } as any);
+
+      // Reload group data to show the new event
+      const data = await getGroupData(group.id);
+      if (data) {
+        const acts = convertEventsToActivities(data.events, data.transactions);
+        setActivities(acts);
+        setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+      }
+      setShowCreateEvent(false);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      // TODO: Show error message to user
+    }
   };
 
-  const handleCreateSplit = (eventName: string, totalAmount: string, deadline: string) => {
-    const newSplit: Split = {
-      id: Date.now().toString(),
-      eventName,
-      totalAmount,
-      creator: 'You',
-      creatorAvatar: 'https://via.placeholder.com/40',
-      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      isOwn: true,
-      participants: 1,
-      deadline,
-      type: 'split',
-    };
-    setActivities([...activities, newSplit]);
-    setJoinedActivities(new Set([...joinedActivities, newSplit.id]));
+  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: string) => {
+    try {
+      // Save split as a transaction to database
+      await createTransaction({
+        eventId: null,
+        groupId: group.id,
+        type: 'split',
+        from: CURRENT_USER_ID,
+        totalAmount: parseFloat(totalAmount),
+        note: eventName, // Save the split name in the note field
+        participants: [CURRENT_USER_ID],
+        splits: [{
+          userId: CURRENT_USER_ID,
+          paid: parseFloat(totalAmount),
+          owes: 0,
+          net: parseFloat(totalAmount)
+        }],
+      } as any);
+
+      // Reload group data to show the new split
+      const data = await getGroupData(group.id);
+      if (data) {
+        const acts = convertEventsToActivities(data.events, data.transactions);
+        setActivities(acts);
+        setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+      }
+      setShowCreateSplit(false);
+    } catch (error) {
+      console.error('Error creating split:', error);
+      // TODO: Show error message to user
+    }
   };
 
   const handleToggleJoinActivity = (activityId: string) => {
