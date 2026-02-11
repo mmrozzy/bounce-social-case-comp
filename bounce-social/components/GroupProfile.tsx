@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData } from '@/data/groupMockData';
+import { getGroupData } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -126,24 +126,42 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
 
-  // Get group data and calculate persona
-  const groupData = getGroupData(group.id);
-  const groupPersona = groupData 
-    ? analyzeGroupPersona(
-        group.id,
-        groupData.members,
-        groupData.transactions,
-        groupData.events,
-        [groupData.group]
-      )
-    : null;
+  // State for group data
+  const [groupData, setGroupData] = useState<any>(null);
+  const [groupPersona, setGroupPersona] = useState<any>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
-  // Convert real events to activities format
-  const initialActivities = groupData ? convertEventsToActivities(groupData.events, groupData.transactions) : [];
-  const [activities, setActivities] = useState<Activity[]>(initialActivities);
-  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(
-    new Set(initialActivities.filter(a => a.isOwn).map(a => a.id))
-  );
+  // Fetch group data from Supabase
+  useEffect(() => {
+    async function loadGroupData() {
+      setLoading(true);
+      try {
+        const data = await getGroupData(group.id);
+        if (data) {
+          setGroupData(data);
+          const persona = analyzeGroupPersona(
+            group.id,
+            data.members,
+            data.transactions,
+            data.events,
+            [data.group]
+          );
+          setGroupPersona(persona);
+          
+          const acts = convertEventsToActivities(data.events, data.transactions);
+          setActivities(acts);
+          setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+        }
+      } catch (error) {
+        console.error('Error loading group data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadGroupData();
+  }, [group.id]);
   
   const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -243,6 +261,15 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     );
   }
 
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.loadingText}>Loading group data...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -320,7 +347,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 {/* Group Traits */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>✨ Group Vibe</Text>
-                  {groupPersona.groupTraits.map((trait, index) => (
+                  {groupPersona.groupTraits.map((trait: string, index: number) => (
                     <Text key={index} style={styles.traitText}>• {trait}</Text>
                   ))}
                 </View>
@@ -328,7 +355,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 {/* Persona Distribution */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>👥 Member Personas</Text>
-                  {groupPersona.personaDistribution.map((dist, index) => (
+                  {groupPersona.personaDistribution.map((dist: any, index: number) => (
                     <View key={index} style={styles.statRow}>
                       <Text style={styles.statLabel}>
                         {dist.emoji} {dist.personaKey.replace(/([A-Z])/g, ' $1').trim()}
@@ -1404,5 +1431,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     paddingVertical: 40,
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#C3F73A',
+    fontSize: 16,
   },
 });

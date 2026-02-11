@@ -19,9 +19,23 @@ export { matchPersona, getPersonaDetails } from './types/personaMatcher'
 export { analyzeUserProfile } from './utils/profileAnalyzer'
 export { analyzeGroupPersona } from './types/groupPersonaAnalyzer'
 
+// Database functions
+export { 
+  getUsers,
+  getUserById,
+  createUser,
+  getGroups,
+  getGroupById,
+  createGroup,
+  getEvents,
+  createEvent,
+  getTransactions,
+  createTransaction,
+  getGroupData
+} from '../lib/database'
+
 // Data
 export { personas } from '../data/personas'
-export { getGroupData } from '../data/groupMockData'
 
 // Components
 export { UserPersonaCard } from '../components/UserPersonaCard'

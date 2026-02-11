@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setNavigationTarget } from '@/lib/navigationState';
 import { PersonaBadge } from '@/components/PersonaBadge';
 import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
-import { currentUser, userGroups, userEvents, userTransactions } from '@/data/mockUserData';
+import { getUserById, getGroups, getEvents, getTransactions } from '@/lib/database';
 
 const PROFILE_BANNER_KEY = '@profile_banner';
 const PROFILE_IMAGE_KEY = '@profile_image';
@@ -98,14 +98,50 @@ export default function ProfileScreen() {
   const [bannerImage, setBannerImage] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userGroups, setUserGroups] = useState<any[]>([]);
+  const [userEvents, setUserEvents] = useState<any[]>([]);
+  const [userTransactions, setUserTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user data from Supabase
+  useEffect(() => {
+    async function loadUserData() {
+      setLoading(true);
+      try {
+        // TODO: Replace 'current-user' with actual authenticated user ID
+        const user = await getUserById('current-user');
+        setCurrentUser(user);
+        
+        const groups = await getGroups();
+        const userGroupsFiltered = groups.filter(g => g.members.includes('current-user'));
+        setUserGroups(userGroupsFiltered);
+        
+        const events = await getEvents();
+        const userEventsFiltered = events.filter(e => e.participants.includes('current-user'));
+        setUserEvents(userEventsFiltered);
+        
+        const transactions = await getTransactions();
+        const userTransactionsFiltered = transactions.filter(
+          t => t.from === 'current-user' || t.participants?.includes('current-user')
+        );
+        setUserTransactions(userTransactionsFiltered);
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadUserData();
+  }, []);
 
   // Calculate user persona profile
-  const userProfile = analyzeUserProfile(
+  const userProfile = currentUser ? analyzeUserProfile(
     currentUser.id,
     userTransactions,
     userEvents,
     userGroups
-  );
+  ) : null;
 
   // Load saved images on mount
   useEffect(() => {
@@ -175,6 +211,15 @@ export default function ProfileScreen() {
     // Navigate to groups tab
     router.push('/tabs/groups');
   };
+
+  // Show loading state
+  if (loading || !currentUser || !userProfile) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -530,5 +575,13 @@ const styles = StyleSheet.create({
   actionTimestamp: {
     color: '#666',
     fontSize: 12,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#C3F73A',
+    fontSize: 16,
   },
 });
