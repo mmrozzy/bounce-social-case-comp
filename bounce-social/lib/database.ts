@@ -164,6 +164,37 @@ export async function deleteGroup(groupId: string) {
   if (error) throw error
 }
 
+export async function deleteEvent(eventId: string) {
+  // Delete event participants first
+  await supabase
+    .from('event_participants')
+    .delete()
+    .eq('event_id', eventId)
+  
+  // Delete transactions associated with this event
+  await supabase
+    .from('transactions')
+    .delete()
+    .eq('event_id', eventId)
+  
+  // Delete the event itself
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId)
+  
+  if (error) throw error
+}
+
+export async function deleteTransaction(transactionId: string) {
+  const { error } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', transactionId)
+  
+  if (error) throw error
+}
+
 // Events
 export async function getEvents(groupId?: string) {
   let query = supabase

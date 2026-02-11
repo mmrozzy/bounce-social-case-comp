@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData, createEvent, createTransaction, deleteGroup } from '@/lib/database';
+import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -286,6 +286,47 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       }));
       setJoinedActivities(new Set([...joinedActivities, activityId]));
     }
+  };
+
+  const handleDeleteActivity = async (activity: Activity) => {
+    const isEvent = activity.type === 'event';
+    
+    Alert.alert(
+      `Delete ${isEvent ? 'Event' : 'Split'}`,
+      `Are you sure you want to delete "${activity.eventName}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (isEvent) {
+                await deleteEvent(activity.id);
+              } else {
+                await deleteTransaction(activity.id);
+              }
+              
+              // Reload group data to show updated activities
+              const data = await getGroupData(group.id);
+              if (data) {
+                const acts = convertEventsToActivities(data.events, data.transactions);
+                setActivities(acts);
+                setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+              }
+              
+              setSelectedActivity(null);
+            } catch (error) {
+              console.error(`Error deleting ${isEvent ? 'event' : 'split'}:`, error);
+              Alert.alert('Error', `Failed to delete ${isEvent ? 'event' : 'split'}. Please try again.`);
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (showCreateEvent) {
@@ -742,10 +783,19 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 )}
 
                 {selectedActivity.isOwn && (
-                  <View style={styles.yourEventBadge}>
-                    <Text style={styles.yourEventText}>
-                      {selectedActivity.type === 'event' ? 'Your Event' : 'Your Split'}
-                    </Text>
+                  <View style={styles.ownActivityActions}>
+                    <View style={styles.yourEventBadge}>
+                      <Text style={styles.yourEventText}>
+                        {selectedActivity.type === 'event' ? 'Your Event' : 'Your Split'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity 
+                      style={styles.deleteActivityButton}
+                      onPress={() => handleDeleteActivity(selectedActivity)}
+                    >
+                      <Ionicons name="trash" size={20} color="#FF6B6B" />
+                      <Text style={styles.deleteActivityButtonText}>Delete</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -1345,6 +1395,27 @@ const styles = StyleSheet.create({
   },
   yourEventText: {
     color: '#C3F73A',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  ownActivityActions: {
+    marginTop: 20,
+    gap: 10,
+  },
+  deleteActivityButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#2a1a1a',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+    gap: 8,
+  },
+  deleteActivityButtonText: {
+    color: '#FF6B6B',
     fontSize: 16,
     fontWeight: 'bold',
   },
