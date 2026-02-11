@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
+import SendNotification from './Notification';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'currentUser';
@@ -111,7 +112,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set(['2'])); // '2' is the user's own event
   
-  const isGroupCreator = group.createdBy === CURRENT_USER_ID;
+  const isGroupCreator = true; //group.createdBy === CURRENT_USER_ID;
 
   // Auto-open activity modal if initialActivityId is provided
   useEffect(() => {
@@ -478,52 +479,13 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
 
       {/* Notification Modal */}
       {showNotificationModal && (
-        <Modal
-          visible={true}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowNotificationModal(false)}
-        >
-          <View style={styles.notificationModalOverlay}>
-            <View style={styles.notificationModalContent}>
-              <View style={styles.notificationModalHeader}>
-                <Text style={styles.notificationModalTitle}>Send Notification</Text>
-                <TouchableOpacity onPress={() => setShowNotificationModal(false)}>
-                  <Ionicons name="close" size={28} color="#fff" />
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.notificationModalSubtitle}>Select an event to notify members about:</Text>
-              
-              <FlatList
-                data={activities.filter(a => a.type === 'event') as Event[]}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.notificationEventItem}
-                    onPress={() => {
-                      // TODO: Backend integration - send notification to all group members
-                      setShowNotificationModal(false);
-                      // For now, just close the modal
-                    }}
-                  >
-                    <View style={styles.notificationEventInfo}>
-                      <Text style={styles.notificationEventName}>{item.eventName}</Text>
-                      <Text style={styles.notificationEventDetails}>
-                        ${item.amount} • {item.deadline}
-                      </Text>
-                    </View>
-                    <Ionicons name="send" size={24} color="#C3F73A" />
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <Text style={styles.notificationEmptyText}>No events to notify about</Text>
-                }
-                style={styles.notificationEventList}
-              />
-            </View>
-          </View>
-        </Modal>
+        <SendNotification
+          visible={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+          activities={activities}
+          totalMembers={group.members}
+          groupName={group.name}
+        />
       )}
     </View>
   );

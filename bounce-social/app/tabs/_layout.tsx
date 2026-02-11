@@ -2,9 +2,64 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications'; 
+import { useEffect } from 'react'; 
+
+// Configure notification behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function TabLayout() {
+  useEffect(() => {
+    registerForPushNotifications();
+  }, []);
+
+  async function registerForPushNotifications() {
+    // Set up Android notification channel
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#C3F73A',
+      });
+    }
+
+    // Check existing permission status
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    
+    // Request permission if not already granted
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    
+    // Log result
+    if (finalStatus !== 'granted') {
+      console.log('❌ Notification permission denied');
+      return;
+    }
+    
+    console.log('✅ Notification permission granted');
+    
+    // Get and log the push token (useful for debugging)
+    try {
+      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log('📱 Push Token:', token);
+    } catch (error) {
+      console.log('Error getting push token:', error);
+    }
+  }
+  
   return (
     <Tabs
       screenOptions={{
@@ -66,4 +121,3 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
 });
-
