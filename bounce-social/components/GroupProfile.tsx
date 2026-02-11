@@ -1,10 +1,10 @@
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, TextInput } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData, createEvent, createTransaction } from '@/lib/database';
+import { getGroupData, createEvent, createTransaction, deleteGroup } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -329,12 +329,44 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
           </TouchableOpacity>
           
           {isGroupCreator && (
-            <TouchableOpacity 
-              style={styles.bellButton}
-              onPress={() => setShowNotificationModal(true)}
-            >
-              <Ionicons name="notifications" size={24} color="#C3F73A" />
-            </TouchableOpacity>
+            <View style={styles.headerRightButtons}>
+              <TouchableOpacity 
+                style={styles.bellButton}
+                onPress={() => setShowNotificationModal(true)}
+              >
+                <Ionicons name="notifications" size={24} color="#C3F73A" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.deleteButton}
+                onPress={() => {
+                  Alert.alert(
+                    'Delete Group',
+                    `Are you sure you want to delete "${group.name}"? This action cannot be undone and will delete all events and splits in this group.`,
+                    [
+                      {
+                        text: 'Cancel',
+                        style: 'cancel'
+                      },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await deleteGroup(group.id);
+                            onBack();
+                          } catch (error) {
+                            console.error('Error deleting group:', error);
+                            Alert.alert('Error', 'Failed to delete group. Please try again.');
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="trash" size={24} color="#FF6B6B" />
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -863,7 +895,15 @@ const styles = StyleSheet.create({
     padding: 15,
     gap: 10,
   },
+  headerRightButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   bellButton: {
+    padding: 10,
+  },
+  deleteButton: {
     padding: 10,
   },
   backText: {

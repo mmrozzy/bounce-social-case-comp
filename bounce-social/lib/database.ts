@@ -121,6 +121,49 @@ export async function createGroup(name: string, memberIds: string[]) {
   return group
 }
 
+export async function deleteGroup(groupId: string) {
+  // Delete in reverse order of foreign key dependencies
+  // 1. Delete event participants for events in this group
+  const { data: groupEvents } = await supabase
+    .from('events')
+    .select('id')
+    .eq('group_id', groupId)
+  
+  if (groupEvents && groupEvents.length > 0) {
+    const eventIds = groupEvents.map(e => e.id)
+    await supabase
+      .from('event_participants')
+      .delete()
+      .in('event_id', eventIds)
+  }
+  
+  // 2. Delete transactions
+  await supabase
+    .from('transactions')
+    .delete()
+    .eq('group_id', groupId)
+  
+  // 3. Delete events
+  await supabase
+    .from('events')
+    .delete()
+    .eq('group_id', groupId)
+  
+  // 4. Delete group members
+  await supabase
+    .from('group_members')
+    .delete()
+    .eq('group_id', groupId)
+  
+  // 5. Delete the group itself
+  const { error } = await supabase
+    .from('groups')
+    .delete()
+    .eq('id', groupId)
+  
+  if (error) throw error
+}
+
 // Events
 export async function getEvents(groupId?: string) {
   let query = supabase

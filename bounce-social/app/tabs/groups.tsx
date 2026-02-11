@@ -83,6 +83,15 @@ export default function GroupsScreen() {
     }, [groups])
   );
 
+  // Reload groups when screen comes into focus (e.g., after deleting a group)
+  useFocusEffect(
+    useCallback(() => {
+      if (!selectedGroup) {
+        loadGroups();
+      }
+    }, [selectedGroup])
+  );
+
   const handleCreateGroup = async (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
     try {
       // TODO: Replace 'current-user' with actual authenticated user ID
