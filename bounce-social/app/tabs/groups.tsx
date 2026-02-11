@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
@@ -23,6 +23,7 @@ interface Group {
 const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
 
 export default function GroupsScreen() {
+  const navigation = useNavigation();
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(undefined);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -33,6 +34,19 @@ export default function GroupsScreen() {
   useEffect(() => {
     loadGroups();
   }, []);
+
+  // Reset to groups list when tab is pressed
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress' as any, (e: any) => {
+      if (selectedGroup) {
+        e.preventDefault();
+        setSelectedGroup(null);
+        setSelectedActivityId(undefined);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, selectedGroup]);
 
   const loadGroups = async () => {
     try {
