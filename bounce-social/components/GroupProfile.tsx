@@ -512,7 +512,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
             style={styles.createSplitButton}
             onPress={() => setShowCreateSplit(true)}
           >
-            <Ionicons name="add-circle" size={20} color="#000" />
+            <Ionicons name="pie-chart-outline" size={20} color="#000" />
             <Text style={styles.splitButtonText}>Create Split</Text>
           </TouchableOpacity>
         </View>

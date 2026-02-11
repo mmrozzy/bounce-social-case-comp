@@ -40,7 +40,7 @@ const getActionIcon = (type: RecentAction['type']) => {
     case 'created_event':
       return { name: 'add-circle' as const, color: '#C3F73A' };
     case 'created_split':
-      return { name: 'add-circle' as const, color: '#4FC3F7' };
+      return { name: 'pie-chart-outline' as const, color: '#4FC3F7' };
     case 'joined_event':
       return { name: 'checkmark-circle' as const, color: '#C3F73A' };
     case 'joined_split':
