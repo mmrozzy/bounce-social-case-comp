@@ -1,10 +1,14 @@
-import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setNavigationTarget } from '@/lib/navigationState';
+import { PersonaBadge } from '@/components/PersonaBadge';
+import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
+import { getUserById, getGroups, getEvents, getTransactions } from '@/lib/database';
 
 const PROFILE_BANNER_KEY = '@profile_banner';
 const PROFILE_IMAGE_KEY = '@profile_image';
@@ -18,52 +22,6 @@ interface RecentAction {
   activityId: string;
   timestamp: string;
 }
-
-// Sample group data for navigation
-const SAMPLE_GROUPS = [
-  { id: '1', name: 'Basketball Crew', members: 24, image: 'https://via.placeholder.com/60', createdBy: 'otherUser1' },
-  { id: '2', name: 'Friday Night Football', members: 18, image: 'https://via.placeholder.com/60', createdBy: 'otherUser2' },
-];
-
-// Sample recent actions
-const RECENT_ACTIONS: RecentAction[] = [
-  {
-    id: '1',
-    type: 'created_event',
-    activityName: 'Weekend Tournament',
-    groupName: 'Basketball Crew',
-    groupId: '1',
-    activityId: '2',
-    timestamp: '2h ago',
-  },
-  {
-    id: '2',
-    type: 'joined_event',
-    activityName: 'Friday Basketball Game',
-    groupName: 'Basketball Crew',
-    groupId: '1',
-    activityId: '1',
-    timestamp: '5h ago',
-  },
-  {
-    id: '3',
-    type: 'joined_split',
-    activityName: 'Court Rental Split',
-    groupName: 'Friday Night Football',
-    groupId: '2',
-    activityId: '4',
-    timestamp: '1d ago',
-  },
-  {
-    id: '4',
-    type: 'created_split',
-    activityName: 'Equipment Split',
-    groupName: 'Basketball Crew',
-    groupId: '1',
-    activityId: '5',
-    timestamp: '2d ago',
-  },
-];
 
 const getActionText = (action: RecentAction) => {
   switch (action.type) {
@@ -83,7 +41,7 @@ const getActionIcon = (type: RecentAction['type']) => {
     case 'created_event':
       return { name: 'add-circle' as const, color: '#C3F73A' };
     case 'created_split':
-      return { name: 'add-circle' as const, color: '#4FC3F7' };
+      return { name: 'pie-chart-outline' as const, color: '#4FC3F7' };
     case 'joined_event':
       return { name: 'checkmark-circle' as const, color: '#C3F73A' };
     case 'joined_split':
@@ -95,6 +53,133 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [bannerImage, setBannerImage] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [showPersonaDetails, setShowPersonaDetails] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userGroups, setUserGroups] = useState<any[]>([]);
+  const [userEvents, setUserEvents] = useState<any[]>([]);
+  const [userTransactions, setUserTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Convert events and splits to recent actions
+  const recentActions: RecentAction[] = (() => {
+    const actions: Array<RecentAction & { dateObj: Date }> = [];
+    
+    // Add events
+    userEvents.forEach(event => {
+      const group = userGroups.find(g => g.id === event.groupId);
+      const isCreator = event.createdBy === 'current-user';
+      const eventDate = new Date(event.date);
+      const timeAgo = getTimeAgo(eventDate);
+      
+      actions.push({
+        id: event.id,
+        type: isCreator ? 'created_event' : 'joined_event',
+        activityName: event.name,
+        groupName: group?.name || 'Unknown Group',
+        groupId: event.groupId,
+        activityId: event.id,
+        timestamp: timeAgo,
+        dateObj: eventDate,
+      });
+    });
+    
+    // Add splits
+    userTransactions
+      .filter(tx => tx.type === 'split')
+      .forEach(split => {
+        const group = userGroups.find(g => g.id === split.groupId);
+        const isCreator = split.from === 'current-user';
+        const splitDate = new Date(split.createdAt);
+        const timeAgo = getTimeAgo(splitDate);
+        
+        actions.push({
+          id: split.id,
+          type: isCreator ? 'created_split' : 'joined_split',
+          activityName: split.note || 'Split Payment',
+          groupName: group?.name || 'Unknown Group',
+          groupId: split.groupId,
+          activityId: split.id,
+          timestamp: timeAgo,
+          dateObj: splitDate,
+        });
+      });
+    
+    // Sort by date (most recent first) and take top 10
+    return actions
+      .sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime())
+      .slice(0, 10)
+      .map(({ dateObj, ...action }) => action); // Remove dateObj from final result
+  })();
+
+  // Helper function to calculate time ago
+  function getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return '1d ago';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return `${Math.floor(diffDays / 30)}mo ago`;
+  }
+
+  // Fetch user data from Supabase
+  const loadUserData = async () => {
+    try {
+      // TODO: Replace 'current-user' with actual authenticated user ID
+      const user = await getUserById('current-user');
+      setCurrentUser(user);
+      
+      const groups = await getGroups();
+      const userGroupsFiltered = groups.filter(g => g.members.includes('current-user'));
+      setUserGroups(userGroupsFiltered);
+      
+      const events = await getEvents();
+      const userEventsFiltered = events.filter(e => e.participants.includes('current-user'));
+      setUserEvents(userEventsFiltered);
+      
+      const transactions = await getTransactions();
+      const userTransactionsFiltered = transactions.filter(
+        t => t.from === 'current-user' || t.participants?.includes('current-user')
+      );
+      setUserTransactions(userTransactionsFiltered);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
+
+  useEffect(() => {
+    const initLoad = async () => {
+      setLoading(true);
+      await loadUserData();
+      setLoading(false);
+    };
+    initLoad();
+  }, []);
+
+  // Reload data when profile tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, [])
+  );
+
+  // Handle pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadUserData();
+    setRefreshing(false);
+  };
+
+  // Calculate user persona profile
+  const userProfile = currentUser ? analyzeUserProfile(
+    currentUser.id,
+    userTransactions,
+    userEvents,
+    userGroups
+  ) : null;
 
   // Load saved images on mount
   useEffect(() => {
@@ -165,8 +250,27 @@ export default function ProfileScreen() {
     router.push('/tabs/groups');
   };
 
+  // Show loading state
+  if (loading || !currentUser || !userProfile) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#C3F73A"
+          colors={['#C3F73A']}
+        />
+      }
+    >
       {/* Banner */}
       <TouchableOpacity 
         style={styles.bannerContainer}
@@ -218,32 +322,114 @@ export default function ProfileScreen() {
         {/* Greeting */}
         <Text style={styles.greeting}>Hello, Guillaume!</Text>
 
+        {/* Persona Badge */}
+        <TouchableOpacity 
+          style={styles.personaSection}
+          onPress={() => setShowPersonaDetails(!showPersonaDetails)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.personaHeader}>
+            <Text style={styles.personaBadgeEmoji}>{userProfile.emoji}</Text>
+            <View style={styles.personaInfo}>
+              <Text style={styles.personaType}>
+                {userProfile.type.replace(/([A-Z])/g, ' $1').trim()}
+              </Text>
+              <Text style={styles.personaDescription}>
+                {userProfile.description.split(' - ')[1]}
+              </Text>
+            </View>
+            <Ionicons 
+              name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
+              size={24} 
+              color="#C3F73A" 
+            />
+          </View>
+
+          {showPersonaDetails && (
+            <View style={styles.personaDetails}>
+              {/* Traits */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>✨ Your Traits</Text>
+                {userProfile.traits.map((trait, index) => (
+                  <Text key={index} style={styles.traitText}>• {trait}</Text>
+                ))}
+              </View>
+
+              {/* Stats */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>📊 Your Stats</Text>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Events Attended</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.eventsAttended}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Total Spent</Text>
+                  <Text style={styles.statValue}>${userProfile.stats.totalSpent.toFixed(2)}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Avg per Event</Text>
+                  <Text style={styles.statValue}>${userProfile.stats.avgEventCost.toFixed(2)}</Text>
+                </View>
+              </View>
+
+              {/* Behavioral Insights */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>🔍 Behavioral Insights</Text>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Avg Group Size</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.features.avgGroupSize.toFixed(1)} people</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Activity Level</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.features.eventsPerMonth.toFixed(1)} events/mo</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Generosity</Text>
+                  <Text style={styles.statValue}>{(userProfile.stats.features.generosityScore * 100).toFixed(0)}%</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Most Active</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.features.mostActiveHour}:00</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
+
         {/* Recent Actions Section */}
         <View style={styles.actionsSection}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           
-          {RECENT_ACTIONS.map((action) => {
-            const icon = getActionIcon(action.type);
-            return (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.actionItem}
-                onPress={() => handleActionPress(action)}
-              >
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name={icon.name} size={24} color={icon.color} />
-                </View>
-                
-                <View style={styles.actionDetails}>
-                  <Text style={styles.actionText}>{getActionText(action)}</Text>
-                  <Text style={styles.actionGroup}>in {action.groupName}</Text>
-                  <Text style={styles.actionTimestamp}>{action.timestamp}</Text>
-                </View>
-                
-                <Ionicons name="chevron-forward" size={20} color="#666" />
-              </TouchableOpacity>
-            );
-          })}
+          {recentActions.length === 0 ? (
+            <View style={styles.emptyActivityContainer}>
+              <Ionicons name="calendar-outline" size={48} color="#333" />
+              <Text style={styles.emptyActivityText}>No recent activity</Text>
+              <Text style={styles.emptyActivitySubtext}>Join or create events to see them here</Text>
+            </View>
+          ) : (
+            recentActions.map((action) => {
+              const icon = getActionIcon(action.type);
+              return (
+                <TouchableOpacity
+                  key={action.id}
+                  style={styles.actionItem}
+                  onPress={() => handleActionPress(action)}
+                >
+                  <View style={styles.actionIconContainer}>
+                    <Ionicons name={icon.name} size={24} color={icon.color} />
+                  </View>
+                  
+                  <View style={styles.actionDetails}>
+                    <Text style={styles.actionText}>{getActionText(action)}</Text>
+                    <Text style={styles.actionGroup}>in {action.groupName}</Text>
+                    <Text style={styles.actionTimestamp}>{action.timestamp}</Text>
+                  </View>
+                  
+                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </View>
     </ScrollView>
@@ -331,7 +517,74 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     marginTop: 10,
-    marginBottom: 30,
+    marginBottom: 20,
+  },
+  personaSection: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 25,
+    borderWidth: 2,
+    borderColor: '#C3F73A',
+  },
+  personaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  personaBadgeEmoji: {
+    fontSize: 48,
+    marginRight: 16,
+  },
+  personaInfo: {
+    flex: 1,
+  },
+  personaType: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    marginBottom: 4,
+    textTransform: 'capitalize',
+  },
+  personaDescription: {
+    fontSize: 14,
+    color: '#999',
+    lineHeight: 20,
+  },
+  personaDetails: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  detailSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  traitText: {
+    fontSize: 14,
+    color: '#ccc',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#999',
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C3F73A',
   },
   actionsSection: {
     marginTop: 10,
@@ -378,5 +631,29 @@ const styles = StyleSheet.create({
   actionTimestamp: {
     color: '#666',
     fontSize: 12,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#C3F73A',
+    fontSize: 16,
+  },
+  emptyActivityContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyActivityText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptyActivitySubtext: {
+    color: '#444',
+    fontSize: 14,
+    marginTop: 4,
   },
 });

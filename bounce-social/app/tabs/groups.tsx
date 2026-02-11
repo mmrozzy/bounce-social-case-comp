@@ -1,14 +1,15 @@
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
 import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
+import { getGroups, createGroup } from '@/lib/database';
 
 // Current user identifier (will be replaced with actual auth later)
-const CURRENT_USER_ID = 'currentUser';
+const CURRENT_USER_ID = 'current-user';
 
 interface Group {
   id: string;
@@ -21,19 +22,51 @@ interface Group {
 
 const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
 
-// Initial sample groups
-const INITIAL_GROUPS: Group[] = [
-  { id: '1', name: 'Basketball Crew', members: 24, image: 'https://via.placeholder.com/60', createdBy: 'otherUser1' },
-  { id: '2', name: 'Friday Night Football', members: 18, image: 'https://via.placeholder.com/60', createdBy: 'otherUser2' },
-  { id: '3', name: 'Tennis Club', members: 12, image: 'https://via.placeholder.com/60', createdBy: 'otherUser3' },
-  { id: '4', name: 'Morning Runners', members: 31, image: 'https://via.placeholder.com/60', createdBy: 'otherUser4' },
-];
-
 export default function GroupsScreen() {
+  const navigation = useNavigation();
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(undefined);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load groups from Supabase
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  // Reset to groups list when tab is pressed
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress' as any, (e: any) => {
+      if (selectedGroup) {
+        e.preventDefault();
+        setSelectedGroup(null);
+        setSelectedActivityId(undefined);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, selectedGroup]);
+
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      const groupsData = await getGroups();
+      // Convert to the format expected by the UI
+      const formattedGroups: Group[] = groupsData.map(g => ({
+        id: g.id,
+        name: g.name,
+        members: g.members.length,
+        image: 'https://via.placeholder.com/60',
+        createdBy: g.members[0] || 'current-user' // First member is creator
+      }));
+      setGroups(formattedGroups);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Listen for navigation from other tabs
   useFocusEffect(
@@ -50,17 +83,26 @@ export default function GroupsScreen() {
     }, [groups])
   );
 
-  const handleCreateGroup = (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
-    const newGroup: Group = {
-      id: Date.now().toString(),
-      name: groupName,
-      members: 1, // Creator is the first member
-      image: profilePic || 'https://via.placeholder.com/60',
-      banner: banner || undefined,
-      createdBy: CURRENT_USER_ID,
-    };
-    setGroups([...groups, newGroup]);
-    setShowCreateGroup(false);
+  // Reload groups when screen comes into focus (e.g., after deleting a group)
+  useFocusEffect(
+    useCallback(() => {
+      if (!selectedGroup) {
+        loadGroups();
+      }
+    }, [selectedGroup])
+  );
+
+  const handleCreateGroup = async (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
+    try {
+      // TODO: Replace 'current-user' with actual authenticated user ID
+      await createGroup(groupName, [CURRENT_USER_ID]);
+      // Reload groups to show the new one
+      await loadGroups();
+      setShowCreateGroup(false);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      // Optionally show an error message to the user
+    }
   };
 
   if (showCreateGroup) {
@@ -89,19 +131,24 @@ export default function GroupsScreen() {
   // Group List View
   return (
     <View style={styles.container}>
-      <FlatList
-        data={groups}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <TouchableOpacity 
-            style={styles.createGroupButton}
-            onPress={() => setShowCreateGroup(true)}
-          >
-            <Ionicons name="add-circle" size={24} color="#000" />
-            <Text style={styles.createGroupButtonText}>Create New Group</Text>
-          </TouchableOpacity>
-        }
-        renderItem={({ item, index }) => (
+      {loading ? (
+        <View style={[styles.container, styles.centerContent]}>
+          <Text style={styles.loadingText}>Loading groups...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <TouchableOpacity 
+              style={styles.createGroupButton}
+              onPress={() => setShowCreateGroup(true)}
+            >
+              <Ionicons name="add-circle" size={24} color="#000" />
+              <Text style={styles.createGroupButtonText}>Create New Group</Text>
+            </TouchableOpacity>
+          }
+          renderItem={({ item, index }) => (
           <TouchableOpacity 
             style={styles.groupItem}
             onPress={() => setSelectedGroup(item)}
@@ -125,6 +172,7 @@ export default function GroupsScreen() {
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
+      )}
     </View>
   );
 }
@@ -213,5 +261,13 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#C3F73A',
+    fontSize: 16,
   },
 });
