@@ -7,7 +7,8 @@ import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
-import GroupPersona from './GroupPersona';
+import PersonaWrapper from './GroupPersona';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -126,7 +127,8 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [profileImage, setProfileImage] = useState<string | null>(group.image);
   const [members, setMembers] = useState<Member[]>([]);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
-  const [showShareablePersona, setShowShareablePersona] = useState(false);
+  const [showPersonaModal, setShowPersonaModal] = useState(false);
+
 
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
 
@@ -577,45 +579,29 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         </View>
 
         {/* Group Persona Section */}
-        {groupPersona && groupPersona.groupStats.totalEvents > 0 ? (
+        {groupPersona && groupPersona.groupStats.totalEvents > 0 && (
           <TouchableOpacity 
-            style={styles.groupPersonaSection}
-            onPress={() => setShowShareablePersona(true)}
-            activeOpacity={0.8}
+            style={styles.groupPersonaCard}
+            onPress={() => setShowPersonaModal(true)}
           >
-            <View style={styles.personaHeader}>
-              <Text style={styles.personaBadgeEmoji}>{groupPersona.dominantPersona.emoji}</Text>
-              <View style={styles.personaInfo}>
-                <Text style={styles.personaType}>
+            <LinearGradient
+              colors={['#C3F73A15', '#FF006E15']}
+              style={styles.personaGradient}
+            />
+            <View style={styles.personaHeader2}>
+              <Text style={styles.personaEmoji}>
+                {groupPersona.dominantPersona.emoji}
+              </Text>
+              <View style={styles.personaInfo2}>
+                <Text style={styles.personaType2}>
                   {groupPersona.dominantPersona.type.replace(/([A-Z])/g, ' $1').trim()}
                 </Text>
-                <Text style={styles.personaDescription}>
-                  {groupPersona.dominantPersona.description}
-                </Text>
+                <Text style={styles.personaHint}>Tap to explore</Text>
               </View>
-              <View style={styles.personaViewButton}>
-                <Ionicons name="eye" size={20} color="#C3F73A" />
-                <Text style={styles.personaViewText}>View & Share</Text>
-              </View>
-            </View>
-            
-            {/* Quick Stats Preview */}
-            <View style={styles.quickStatsPreview}>
-              <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{groupPersona.groupStats.totalEvents}</Text>
-                <Text style={styles.quickStatLabel}>Events</Text>
-              </View>
-              <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>${groupPersona.groupStats.totalSpent.toFixed(0)}</Text>
-                <Text style={styles.quickStatLabel}>Spent</Text>
-              </View>
-              <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{(groupPersona.groupStats.groupGenerosity * 100).toFixed(0)}%</Text>
-                <Text style={styles.quickStatLabel}>Generosity</Text>
-              </View>
+              <Ionicons name="chevron-forward" size={24} color="#C3F73A" />
             </View>
           </TouchableOpacity>
-        ) : (
+        )} : (
           <TouchableOpacity 
             style={styles.groupPersonaSectionEmpty}
             onPress={() => setShowPersonaDetails(!showPersonaDetails)}
@@ -673,7 +659,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               </View>
             )}
           </TouchableOpacity>
-        )}
+        )
 
         {/* Create Event Button Section */}
         <View style={styles.actionSection}>
@@ -1026,19 +1012,19 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       )}
 
       {/* Shareable Group Persona Modal */}
-      {showShareablePersona && groupPersona && (
-        <Modal
-          visible={true}
-          animationType="slide"
-          presentationStyle="fullScreen"
-        >
-          <GroupPersona
-            groupPersona={groupPersona}
-            groupName={group.name}
-            onClose={() => setShowShareablePersona(false)}
-          />
-        </Modal>
-      )}
+      {showPersonaModal && groupPersona && (
+      <Modal
+        visible={true}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <PersonaWrapper
+          groupPersona={groupPersona}
+          groupName={group.name}
+          onClose={() => setShowPersonaModal(false)}
+        />
+      </Modal>
+    )}
     </View>
   );
 }
@@ -1754,4 +1740,42 @@ const styles = StyleSheet.create({
     color: '#999',
     fontWeight: '500',
   },
+  groupPersonaCard: {
+    marginHorizontal: 20,
+    marginVertical: 15,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#C3F73A',
+    backgroundColor: '#0a0a0a',
+  },
+  personaGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  personaHeader2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    gap: 16,
+  },
+  personaEmoji: {
+    fontSize: 56,
+  },
+  personaInfo2: {
+    flex: 1,
+  },
+  personaType2: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    marginBottom: 4,
+  },
+  personaHint: {
+    fontSize: 13,
+    color: '#999',
+},
 });
