@@ -22,51 +22,6 @@ interface RecentAction {
   timestamp: string;
 }
 
-// Sample group data for navigation
-const SAMPLE_GROUPS = [
-  { id: 'group-1', name: 'Basketball Crew', members: 6, image: 'https://via.placeholder.com/60', createdBy: 'currentUser' },
-];
-
-// Sample recent actions
-const RECENT_ACTIONS: RecentAction[] = [
-  {
-    id: '1',
-    type: 'created_event',
-    activityName: 'Championship Game',
-    groupName: 'Basketball Crew',
-    groupId: 'group-1',
-    activityId: 'event-7',
-    timestamp: '1d ago',
-  },
-  {
-    id: '2',
-    type: 'created_event',
-    activityName: 'Weekend Tournament',
-    groupName: 'Basketball Crew',
-    groupId: 'group-1',
-    activityId: 'event-2',
-    timestamp: '3w ago',
-  },
-  {
-    id: '3',
-    type: 'created_event',
-    activityName: 'Practice Session',
-    groupName: 'Basketball Crew',
-    groupId: 'group-1',
-    activityId: 'event-4',
-    timestamp: '2w ago',
-  },
-  {
-    id: '4',
-    type: 'joined_event',
-    activityName: 'Friday Basketball Game',
-    groupName: 'Basketball Crew',
-    groupId: 'group-1',
-    activityId: 'event-1',
-    timestamp: '1mo ago',
-  },
-];
-
 const getActionText = (action: RecentAction) => {
   switch (action.type) {
     case 'created_event':
@@ -103,6 +58,36 @@ export default function ProfileScreen() {
   const [userEvents, setUserEvents] = useState<any[]>([]);
   const [userTransactions, setUserTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Convert events to recent actions
+  const recentActions: RecentAction[] = userEvents.slice(0, 10).map(event => {
+    const group = userGroups.find(g => g.id === event.groupId);
+    const isCreator = event.createdBy === 'current-user';
+    const timeAgo = getTimeAgo(new Date(event.date));
+    
+    return {
+      id: event.id,
+      type: isCreator ? 'created_event' : 'joined_event',
+      activityName: event.name,
+      groupName: group?.name || 'Unknown Group',
+      groupId: event.groupId,
+      activityId: event.id,
+      timestamp: timeAgo,
+    };
+  });
+
+  // Helper function to calculate time ago
+  function getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return '1d ago';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return `${Math.floor(diffDays / 30)}mo ago`;
+  }
 
   // Fetch user data from Supabase
   useEffect(() => {
@@ -352,28 +337,36 @@ export default function ProfileScreen() {
         <View style={styles.actionsSection}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           
-          {RECENT_ACTIONS.map((action) => {
-            const icon = getActionIcon(action.type);
-            return (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.actionItem}
-                onPress={() => handleActionPress(action)}
-              >
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name={icon.name} size={24} color={icon.color} />
-                </View>
-                
-                <View style={styles.actionDetails}>
-                  <Text style={styles.actionText}>{getActionText(action)}</Text>
-                  <Text style={styles.actionGroup}>in {action.groupName}</Text>
-                  <Text style={styles.actionTimestamp}>{action.timestamp}</Text>
-                </View>
-                
-                <Ionicons name="chevron-forward" size={20} color="#666" />
-              </TouchableOpacity>
-            );
-          })}
+          {recentActions.length === 0 ? (
+            <View style={styles.emptyActivityContainer}>
+              <Ionicons name="calendar-outline" size={48} color="#333" />
+              <Text style={styles.emptyActivityText}>No recent activity</Text>
+              <Text style={styles.emptyActivitySubtext}>Join or create events to see them here</Text>
+            </View>
+          ) : (
+            recentActions.map((action) => {
+              const icon = getActionIcon(action.type);
+              return (
+                <TouchableOpacity
+                  key={action.id}
+                  style={styles.actionItem}
+                  onPress={() => handleActionPress(action)}
+                >
+                  <View style={styles.actionIconContainer}>
+                    <Ionicons name={icon.name} size={24} color={icon.color} />
+                  </View>
+                  
+                  <View style={styles.actionDetails}>
+                    <Text style={styles.actionText}>{getActionText(action)}</Text>
+                    <Text style={styles.actionGroup}>in {action.groupName}</Text>
+                    <Text style={styles.actionTimestamp}>{action.timestamp}</Text>
+                  </View>
+                  
+                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </View>
     </ScrollView>
@@ -583,5 +576,21 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#C3F73A',
     fontSize: 16,
+  },
+  emptyActivityContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyActivityText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptyActivitySubtext: {
+    color: '#444',
+    fontSize: 14,
+    marginTop: 4,
   },
 });
