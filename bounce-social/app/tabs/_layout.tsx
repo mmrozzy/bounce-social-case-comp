@@ -19,44 +19,53 @@ Notifications.setNotificationHandler({
 
 export default function TabLayout() {
   useEffect(() => {
-    registerForPushNotifications();
+    setupNotifications();
   }, []);
 
-  async function registerForPushNotifications() {
-    // Set up Android notification channel
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#C3F73A',
-      });
-    }
-
-    // Check existing permission status
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    
-    // Request permission if not already granted
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    
-    // Log result
-    if (finalStatus !== 'granted') {
-      console.log('❌ Notification permission denied');
-      return;
-    }
-    
-    console.log('✅ Notification permission granted');
-    
-    // Get and log the push token (useful for debugging)
+  async function setupNotifications() {
     try {
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      console.log('📱 Push Token:', token);
+      // Set up Android notification channel FIRST (required for Android 8+)
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Payment Reminders',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#C3F73A',
+        });
+        console.log('Android notification channel created');
+      }
+
+      // Request permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        console.log('Notification permission denied');
+        return;
+      }
+      
+      console.log('Notification permission granted');
+      
+      // ONLY get push token on iOS (Android throws error in Expo Go SDK 53+)
+      if (Platform.OS === 'ios') {
+        try {
+          const token = (await Notifications.getExpoPushTokenAsync()).data;
+          console.log('📱 iOS Push Token:', token);
+        } catch (error) {
+          console.log('Could not get push token:', error);
+        }
+      } else {
+        console.log('Android: Skipping push token (not needed for local notifications)');
+      }
+      
     } catch (error) {
-      console.log('Error getting push token:', error);
+      console.error('Notification setup error:', error);
+      // Don't crash the app if notifications fail
     }
   }
   
