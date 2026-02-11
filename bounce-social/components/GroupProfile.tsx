@@ -59,18 +59,8 @@ interface Member {
   role: 'host' | 'member';
 }
 
-// Sample members
-const SAMPLE_MEMBERS: Member[] = [
-  { id: 'current-user', name: 'You', avatar: 'https://via.placeholder.com/50', role: 'host' },
-  { id: 'user-2', name: 'Alex Chen', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-3', name: 'Maya Patel', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-4', name: 'Jordan Lee', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-5', name: 'Taylor Swift', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-6', name: 'Sam Rodriguez', avatar: 'https://via.placeholder.com/50', role: 'member' },
-];
-
 // Function to convert real events and transactions to activities format
-const convertEventsToActivities = (events: any[], transactions: any[]): Activity[] => {
+const convertEventsToActivities = (events: any[], transactions: any[], members: Member[]): Activity[] => {
   const activities: Array<Activity & { dateObj: Date }> = [];
   
   // Convert events to activities
@@ -78,7 +68,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
     const eventTransactions = transactions.filter(t => t.eventId === event.id);
     const isOwn = event.createdBy === 'current-user';
     const amount = eventTransactions.length > 0 ? eventTransactions[0].totalAmount?.toString() || '0' : '0';
-    const creatorName = event.createdBy === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === event.createdBy)?.name || 'Unknown';
+    const creatorName = event.createdBy === 'current-user' ? 'You' : members.find(m => m.id === event.createdBy)?.name || 'Unknown';
     const eventDate = new Date(event.date);
     
     activities.push({
@@ -99,7 +89,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
   // Convert split transactions to split activities
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
-    const creatorName = transaction.from === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === transaction.from)?.name || 'Unknown';
+    const creatorName = transaction.from === 'current-user' ? 'You' : members.find(m => m.id === transaction.from)?.name || 'Unknown';
     const splitDate = new Date(transaction.createdAt);
     
     activities.push({
@@ -132,7 +122,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [bannerImage, setBannerImage] = useState<string | null>(group.banner || null);
   const [profileImage, setProfileImage] = useState<string | null>(group.image);
-  const [members] = useState<Member[]>(SAMPLE_MEMBERS);
+  const [members, setMembers] = useState<Member[]>([]);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
@@ -216,6 +206,16 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         const data = await getGroupData(group.id);
         if (data) {
           setGroupData(data);
+          
+          // Transform database members to Member interface
+          const transformedMembers: Member[] = data.members.map((user: any) => ({
+            id: user.id,
+            name: user.id === 'current-user' ? 'You' : user.name,
+            avatar: 'https://via.placeholder.com/50',
+            role: user.id === group.createdBy ? 'host' : 'member'
+          }));
+          setMembers(transformedMembers);
+          
           const persona = analyzeGroupPersona(
             group.id,
             data.members,
@@ -225,7 +225,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
           );
           setGroupPersona(persona);
           
-          const acts = convertEventsToActivities(data.events, data.transactions);
+          const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
           setActivities(acts);
           setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
         }
@@ -280,7 +280,14 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       // Reload group data to show the new event
       const data = await getGroupData(group.id);
       if (data) {
-        const acts = convertEventsToActivities(data.events, data.transactions);
+        const transformedMembers: Member[] = data.members.map((user: any) => ({
+          id: user.id,
+          name: user.id === 'current-user' ? 'You' : user.name,
+          avatar: 'https://via.placeholder.com/50',
+          role: user.id === group.createdBy ? 'host' : 'member'
+        }));
+        setMembers(transformedMembers);
+        const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
         setActivities(acts);
         setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
       }
@@ -313,7 +320,14 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       // Reload group data to show the new split
       const data = await getGroupData(group.id);
       if (data) {
-        const acts = convertEventsToActivities(data.events, data.transactions);
+        const transformedMembers: Member[] = data.members.map((user: any) => ({
+          id: user.id,
+          name: user.id === 'current-user' ? 'You' : user.name,
+          avatar: 'https://via.placeholder.com/50',
+          role: user.id === group.createdBy ? 'host' : 'member'
+        }));
+        setMembers(transformedMembers);
+        const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
         setActivities(acts);
         setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
       }
@@ -381,7 +395,14 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               // Reload group data to show updated activities
               const data = await getGroupData(group.id);
               if (data) {
-                const acts = convertEventsToActivities(data.events, data.transactions);
+                const transformedMembers: Member[] = data.members.map((user: any) => ({
+                  id: user.id,
+                  name: user.id === 'current-user' ? 'You' : user.name,
+                  avatar: 'https://via.placeholder.com/50',
+                  role: user.id === group.createdBy ? 'host' : 'member'
+                }));
+                setMembers(transformedMembers);
+                const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
                 setActivities(acts);
                 setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
               }
