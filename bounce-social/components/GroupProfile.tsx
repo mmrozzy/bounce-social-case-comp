@@ -190,8 +190,8 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       const eventDate = new Date();
       eventDate.setDate(eventDate.getDate() + 1);
       
-      // Save to database
-      await createEvent(
+      // Save to database and get the created event
+      const newEvent = await createEvent(
         group.id,
         eventName,
         eventDate.toISOString(), // Use ISO format for database
@@ -199,9 +199,9 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         [CURRENT_USER_ID] // Creator is the first participant
       );
 
-      // Create transaction for the event
+      // Create transaction for the event with the correct eventId
       await createTransaction({
-        eventId: null, // Will be set after event is created
+        eventId: newEvent.id, // Link transaction to the newly created event
         groupId: group.id,
         type: 'event',
         from: CURRENT_USER_ID,
