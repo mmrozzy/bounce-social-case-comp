@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
+import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
+import { getGroupData } from '@/data/groupMockData';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'currentUser';
@@ -132,8 +134,21 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set(['2'])); // '2' is the user's own event
   const [members] = useState<Member[]>(SAMPLE_MEMBERS);
+  const [showPersonaDetails, setShowPersonaDetails] = useState(false);
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
+
+  // Get group data and calculate persona
+  const groupData = getGroupData(group.id);
+  const groupPersona = groupData 
+    ? analyzeGroupPersona(
+        group.id,
+        groupData.members,
+        groupData.transactions,
+        groupData.events,
+        [groupData.group]
+      )
+    : null;
   
   const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -280,6 +295,84 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
             <Text style={styles.memberCount}>{group.members} members</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Group Persona Section */}
+        {groupPersona && (
+          <TouchableOpacity 
+            style={styles.groupPersonaSection}
+            onPress={() => setShowPersonaDetails(!showPersonaDetails)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.personaHeader}>
+              <Text style={styles.personaBadgeEmoji}>{groupPersona.dominantPersona.emoji}</Text>
+              <View style={styles.personaInfo}>
+                <Text style={styles.personaType}>
+                  {groupPersona.dominantPersona.type.replace(/([A-Z])/g, ' $1').trim()}
+                </Text>
+                <Text style={styles.personaDescription}>
+                  {groupPersona.dominantPersona.description}
+                </Text>
+              </View>
+              <Ionicons 
+                name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color="#C3F73A" 
+              />
+            </View>
+
+            {showPersonaDetails && (
+              <View style={styles.personaDetails}>
+                {/* Group Traits */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>✨ Group Vibe</Text>
+                  {groupPersona.groupTraits.map((trait, index) => (
+                    <Text key={index} style={styles.traitText}>• {trait}</Text>
+                  ))}
+                </View>
+
+                {/* Persona Distribution */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>👥 Member Personas</Text>
+                  {groupPersona.personaDistribution.map((dist, index) => (
+                    <View key={index} style={styles.statRow}>
+                      <Text style={styles.statLabel}>
+                        {dist.emoji} {dist.personaKey.replace(/([A-Z])/g, ' $1').trim()}
+                      </Text>
+                      <Text style={styles.statValue}>
+                        {dist.count} ({dist.percentage}%)
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Group Stats */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>📊 Group Stats</Text>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Total Events</Text>
+                    <Text style={styles.statValue}>{groupPersona.groupStats.totalEvents}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Total Spent</Text>
+                    <Text style={styles.statValue}>${groupPersona.groupStats.totalSpent.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Avg Event Cost</Text>
+                    <Text style={styles.statValue}>${groupPersona.groupStats.avgEventCost.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Group Generosity</Text>
+                    <Text style={styles.statValue}>{(groupPersona.groupStats.groupGenerosity * 100).toFixed(0)}%</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Most Active Time</Text>
+                    <Text style={styles.statValue}>{groupPersona.groupStats.mostActiveTime}:00</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Create Event Button Section */}
         <View style={styles.actionSection}>
@@ -688,6 +781,74 @@ const styles = StyleSheet.create({
   memberCount: {
     color: '#666',
     fontSize: 14,
+  },
+  groupPersonaSection: {
+    backgroundColor: '#1a1a1a',
+    marginHorizontal: 20,
+    marginVertical: 15,
+    borderRadius: 15,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#C3F73A',
+  },
+  personaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  personaBadgeEmoji: {
+    fontSize: 36,
+    marginRight: 12,
+  },
+  personaInfo: {
+    flex: 1,
+  },
+  personaType: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    marginBottom: 2,
+    textTransform: 'capitalize',
+  },
+  personaDescription: {
+    fontSize: 12,
+    color: '#999',
+    lineHeight: 16,
+  },
+  personaDetails: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  detailSection: {
+    marginBottom: 16,
+  },
+  detailSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  traitText: {
+    fontSize: 12,
+    color: '#ccc',
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#999',
+  },
+  statValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#C3F73A',
   },
   actionSection: {
     paddingHorizontal: 20,

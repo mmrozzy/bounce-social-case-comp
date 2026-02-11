@@ -4,13 +4,24 @@ A social expense tracking and group management app that analyzes user behavior t
 
 ## Features
 
-### 🎭 Persona System
+### 🎭 User Persona System
 
 Automatically analyze user behavior patterns to classify them into 12 distinct social personas based on:
 
 - **Social Behavior**: Group size preferences, social activity patterns
 - **Financial Patterns**: Spending habits, generosity, payment speed
 - **Activity Patterns**: Event frequency, preferred times of day
+
+### 👥 Group Persona System
+
+Analyze group dynamics based on collective member behavior:
+
+- **Dominant Persona**: Most common personality type in the group
+- **Persona Distribution**: Breakdown of all member personas
+- **Group Traits**: Collective behavioral characteristics
+- **Group Stats**: Aggregated metrics (total spent, event frequency, generosity)
+
+[Full Group Persona Documentation →](GROUP_PERSONA_SYSTEM.md)
 
 #### Available Personas
 
