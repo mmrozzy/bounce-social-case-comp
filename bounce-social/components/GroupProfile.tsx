@@ -1,6 +1,8 @@
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
@@ -128,6 +130,8 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [bannerImage, setBannerImage] = useState<string | null>(group.banner || null);
+  const [profileImage, setProfileImage] = useState<string | null>(group.image);
   const [members] = useState<Member[]>(SAMPLE_MEMBERS);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
   
@@ -139,6 +143,70 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [activities, setActivities] = useState<Activity[]>([]);
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+
+  // Load saved images on mount
+  useEffect(() => {
+    loadGroupImages();
+  }, [group.id]);
+
+  const loadGroupImages = async () => {
+    try {
+      const savedBanner = await AsyncStorage.getItem(`@group_banner_${group.id}`);
+      const savedProfile = await AsyncStorage.getItem(`@group_profile_${group.id}`);
+      if (savedBanner) setBannerImage(savedBanner);
+      if (savedProfile) setProfileImage(savedProfile);
+    } catch (error) {
+      console.error('Error loading group images:', error);
+    }
+  };
+
+  const pickBannerImage = async () => {
+    if (!isGroupCreator) {
+      Alert.alert('Permission Denied', 'Only the group creator can change the banner.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setBannerImage(uri);
+      try {
+        await AsyncStorage.setItem(`@group_banner_${group.id}`, uri);
+      } catch (error) {
+        console.error('Error saving banner:', error);
+      }
+    }
+  };
+
+  const pickProfileImage = async () => {
+    if (!isGroupCreator) {
+      Alert.alert('Permission Denied', 'Only the group creator can change the profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setProfileImage(uri);
+      try {
+        await AsyncStorage.setItem(`@group_profile_${group.id}`, uri);
+      } catch (error) {
+        console.error('Error saving profile image:', error);
+      }
+    }
+  };
 
   // Fetch group data from Supabase
   useEffect(() => {
@@ -412,20 +480,47 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         </View>
 
         {/* Banner */}
-        {group.banner ? (
-          <Image source={{ uri: group.banner }} style={styles.banner} />
-        ) : (
-          <View style={styles.banner} />
-        )}
+        <TouchableOpacity 
+          onPress={pickBannerImage}
+          activeOpacity={isGroupCreator ? 0.7 : 1}
+          style={styles.bannerContainer}
+        >
+          {bannerImage ? (
+            <Image source={{ uri: bannerImage }} style={styles.banner} />
+          ) : (
+            <View style={styles.banner}>
+              {isGroupCreator && (
+                <View style={styles.bannerPlaceholder}>
+                  <Ionicons name="camera" size={32} color="#666" />
+                  <Text style={styles.bannerPlaceholderText}>Tap to add banner</Text>
+                </View>
+              )}
+            </View>
+          )}
+          {bannerImage && isGroupCreator && (
+            <View style={styles.bannerEditIcon}>
+              <Ionicons name="camera" size={20} color="#fff" />
+            </View>
+          )}
+        </TouchableOpacity>
         
         {/* Group Picture */}
         <View style={styles.profilePicContainer}>
-          <View style={styles.profilePic}>
+          <TouchableOpacity 
+            onPress={pickProfileImage}
+            activeOpacity={isGroupCreator ? 0.7 : 1}
+            style={styles.profilePic}
+          >
             <Image 
-              source={{ uri: group.image }}
+              source={{ uri: profileImage }}
               style={styles.profileImage}
             />
-          </View>
+            {isGroupCreator && (
+              <View style={styles.profileEditIcon}>
+                <Ionicons name="camera" size={16} color="#fff" />
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
         
         {/* Group Title & Members */}
@@ -960,10 +1055,35 @@ const styles = StyleSheet.create({
     color: '#C3F73A',
     fontSize: 16,
   },
+  bannerContainer: {
+    position: 'relative',
+  },
   banner: {
     width: '100%',
     height: 90,
     backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerPlaceholderText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  bannerEditIcon: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profilePicContainer: {
     alignItems: 'center',
@@ -977,6 +1097,18 @@ const styles = StyleSheet.create({
     borderColor: '#000',
     backgroundColor: '#fff',
     overflow: 'hidden',
+    position: 'relative',
+  },
+  profileEditIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileImage: {
     width: '100%',

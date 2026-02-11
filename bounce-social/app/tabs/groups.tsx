@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
 import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
@@ -53,12 +54,23 @@ export default function GroupsScreen() {
       setLoading(true);
       const groupsData = await getGroups();
       // Convert to the format expected by the UI
-      const formattedGroups: Group[] = groupsData.map(g => ({
-        id: g.id,
-        name: g.name,
-        members: g.members.length,
-        image: 'https://via.placeholder.com/60',
-        createdBy: g.members[0] || 'current-user' // First member is creator
+      const formattedGroups: Group[] = await Promise.all(groupsData.map(async (g) => {
+        // Try to load saved profile image for this group
+        let savedImage = 'https://via.placeholder.com/60';
+        try {
+          const storedImage = await AsyncStorage.getItem(`@group_profile_${g.id}`);
+          if (storedImage) savedImage = storedImage;
+        } catch (error) {
+          console.error('Error loading group image:', error);
+        }
+        
+        return {
+          id: g.id,
+          name: g.name,
+          members: g.members.length,
+          image: savedImage,
+          createdBy: g.members[0] || 'current-user' // First member is creator
+        };
       }));
       setGroups(formattedGroups);
     } catch (error) {
@@ -155,10 +167,7 @@ export default function GroupsScreen() {
           >
             <View style={styles.groupItemImageContainer}>
               {item.image.startsWith('file://') || item.image.startsWith('content://') ? (
-                <>
-                  <Image source={{ uri: item.image }} style={styles.groupItemImageBackground} />
-                  <View style={styles.groupItemImageMask} />
-                </>
+                <Image source={{ uri: item.image }} style={styles.groupItemImage} />
               ) : (
                 <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
               )}
@@ -195,6 +204,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    borderRadius: 30,
+  },
+  groupItemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   groupItemDiamond: {
     width: 0,
