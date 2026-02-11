@@ -297,7 +297,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         </View>
 
         {/* Group Persona Section */}
-        {groupPersona && (
+        {groupPersona && groupPersona.groupStats.totalEvents > 0 ? (
           <TouchableOpacity 
             style={styles.groupPersonaSection}
             onPress={() => setShowPersonaDetails(!showPersonaDetails)}
@@ -368,6 +368,64 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                     <Text style={styles.statLabel}>Most Active Time</Text>
                     <Text style={styles.statValue}>{groupPersona.groupStats.mostActiveTime}:00</Text>
                   </View>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={styles.groupPersonaSectionEmpty}
+            onPress={() => setShowPersonaDetails(!showPersonaDetails)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.personaHeader}>
+              <Text style={styles.personaBadgeEmoji}>🚀</Text>
+              <View style={styles.personaInfo}>
+                <Text style={styles.personaTypeEmpty}>
+                  Get ready to start your spending adventure!
+                </Text>
+                <Text style={styles.personaDescriptionEmpty}>
+                  Tap to learn about group personas
+                </Text>
+              </View>
+              <Ionicons 
+                name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color="#666" 
+              />
+            </View>
+
+            {showPersonaDetails && (
+              <View style={styles.personaDetails}>
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>🎭 What are Group Personas?</Text>
+                  <Text style={styles.emptyExplanationText}>
+                    As your group creates events and splits expenses, we'll analyze your collective behavior to discover your group's unique personality!
+                  </Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>📊 What We Track</Text>
+                  <Text style={styles.traitText}>• Event frequency and timing</Text>
+                  <Text style={styles.traitText}>• Spending patterns and budget preferences</Text>
+                  <Text style={styles.traitText}>• Group size preferences</Text>
+                  <Text style={styles.traitText}>• Payment speed and generosity</Text>
+                  <Text style={styles.traitText}>• Activity level and social dynamics</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>✨ Example Personas</Text>
+                  <Text style={styles.traitText}>🌟 The Party Crew - High energy, frequent events</Text>
+                  <Text style={styles.traitText}>📅 The Organized Squad - Well-planned meetups</Text>
+                  <Text style={styles.traitText}>🍜 The Culinary Club - Premium dining experiences</Text>
+                  <Text style={styles.traitText}>💸 The Budget Conscious - Smart spenders</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>🚀 Get Started</Text>
+                  <Text style={styles.emptyExplanationText}>
+                    Create your first event or split to start building your group's personality profile. The more activities you do together, the more accurate your persona becomes!
+                  </Text>
                 </View>
               </View>
             )}
@@ -791,6 +849,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C3F73A',
   },
+  groupPersonaSectionEmpty: {
+    backgroundColor: '#1a1a1a',
+    marginHorizontal: 20,
+    marginVertical: 15,
+    borderRadius: 15,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
   personaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -809,9 +876,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     textTransform: 'capitalize',
   },
+  personaTypeEmpty: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 2,
+  },
   personaDescription: {
     fontSize: 12,
     color: '#999',
+    lineHeight: 16,
+  },
+  personaDescriptionEmpty: {
+    fontSize: 12,
+    color: '#666',
     lineHeight: 16,
   },
   personaDetails: {
@@ -833,6 +911,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ccc',
     marginBottom: 6,
+    lineHeight: 18,
+  },
+  emptyExplanationText: {
+    fontSize: 12,
+    color: '#999',
     lineHeight: 18,
   },
   statRow: {
