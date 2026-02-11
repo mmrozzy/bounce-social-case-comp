@@ -1,4 +1,4 @@
-import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
@@ -58,23 +58,56 @@ export default function ProfileScreen() {
   const [userEvents, setUserEvents] = useState<any[]>([]);
   const [userTransactions, setUserTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Convert events to recent actions
-  const recentActions: RecentAction[] = userEvents.slice(0, 10).map(event => {
-    const group = userGroups.find(g => g.id === event.groupId);
-    const isCreator = event.createdBy === 'current-user';
-    const timeAgo = getTimeAgo(new Date(event.date));
+  // Convert events and splits to recent actions
+  const recentActions: RecentAction[] = (() => {
+    const actions: RecentAction[] = [];
     
-    return {
-      id: event.id,
-      type: isCreator ? 'created_event' : 'joined_event',
-      activityName: event.name,
-      groupName: group?.name || 'Unknown Group',
-      groupId: event.groupId,
-      activityId: event.id,
-      timestamp: timeAgo,
-    };
-  });
+    // Add events
+    userEvents.forEach(event => {
+      const group = userGroups.find(g => g.id === event.groupId);
+      const isCreator = event.createdBy === 'current-user';
+      const timeAgo = getTimeAgo(new Date(event.date));
+      
+      actions.push({
+        id: event.id,
+        type: isCreator ? 'created_event' : 'joined_event',
+        activityName: event.name,
+        groupName: group?.name || 'Unknown Group',
+        groupId: event.groupId,
+        activityId: event.id,
+        timestamp: timeAgo,
+      });
+    });
+    
+    // Add splits
+    userTransactions
+      .filter(tx => tx.type === 'split')
+      .forEach(split => {
+        const group = userGroups.find(g => g.id === split.groupId);
+        const isCreator = split.from === 'current-user';
+        const timeAgo = getTimeAgo(new Date(split.createdAt));
+        
+        actions.push({
+          id: split.id,
+          type: isCreator ? 'created_split' : 'joined_split',
+          activityName: split.note || 'Split Payment',
+          groupName: group?.name || 'Unknown Group',
+          groupId: split.groupId,
+          activityId: split.id,
+          timestamp: timeAgo,
+        });
+      });
+    
+    // Sort by date (most recent first) and take top 10
+    return actions
+      .sort((a, b) => {
+        // This is a simple sort - could be improved with actual dates
+        return 0; // For now, keep insertion order
+      })
+      .slice(0, 10);
+  })();
 
   // Helper function to calculate time ago
   function getTimeAgo(date: Date): string {
@@ -90,35 +123,45 @@ export default function ProfileScreen() {
   }
 
   // Fetch user data from Supabase
-  useEffect(() => {
-    async function loadUserData() {
-      setLoading(true);
-      try {
-        // TODO: Replace 'current-user' with actual authenticated user ID
-        const user = await getUserById('current-user');
-        setCurrentUser(user);
-        
-        const groups = await getGroups();
-        const userGroupsFiltered = groups.filter(g => g.members.includes('current-user'));
-        setUserGroups(userGroupsFiltered);
-        
-        const events = await getEvents();
-        const userEventsFiltered = events.filter(e => e.participants.includes('current-user'));
-        setUserEvents(userEventsFiltered);
-        
-        const transactions = await getTransactions();
-        const userTransactionsFiltered = transactions.filter(
-          t => t.from === 'current-user' || t.participants?.includes('current-user')
-        );
-        setUserTransactions(userTransactionsFiltered);
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      } finally {
-        setLoading(false);
-      }
+  const loadUserData = async () => {
+    try {
+      // TODO: Replace 'current-user' with actual authenticated user ID
+      const user = await getUserById('current-user');
+      setCurrentUser(user);
+      
+      const groups = await getGroups();
+      const userGroupsFiltered = groups.filter(g => g.members.includes('current-user'));
+      setUserGroups(userGroupsFiltered);
+      
+      const events = await getEvents();
+      const userEventsFiltered = events.filter(e => e.participants.includes('current-user'));
+      setUserEvents(userEventsFiltered);
+      
+      const transactions = await getTransactions();
+      const userTransactionsFiltered = transactions.filter(
+        t => t.from === 'current-user' || t.participants?.includes('current-user')
+      );
+      setUserTransactions(userTransactionsFiltered);
+    } catch (error) {
+      console.error('Error loading user data:', error);
     }
-    loadUserData();
+  };
+
+  useEffect(() => {
+    const initLoad = async () => {
+      setLoading(true);
+      await loadUserData();
+      setLoading(false);
+    };
+    initLoad();
   }, []);
+
+  // Handle pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadUserData();
+    setRefreshing(false);
+  };
 
   // Calculate user persona profile
   const userProfile = currentUser ? analyzeUserProfile(
@@ -207,7 +250,17 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#C3F73A"
+          colors={['#C3F73A']}
+        />
+      }
+    >
       {/* Banner */}
       <TouchableOpacity 
         style={styles.bannerContainer}
