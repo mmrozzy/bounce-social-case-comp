@@ -280,17 +280,7 @@ export default function ProfileScreen() {
         {bannerImage ? (
           <Image source={{ uri: bannerImage }} style={styles.banner} />
         ) : (
-          <View style={styles.banner}>
-            <View style={styles.uploadOverlay}>
-              <Ionicons name="camera" size={40} color="#666" />
-              <Text style={styles.uploadText}>Tap to add banner</Text>
-            </View>
-          </View>
-        )}
-        {bannerImage && (
-          <View style={styles.editIconOverlay}>
-            <Ionicons name="camera" size={24} color="#fff" />
-          </View>
+          <View style={styles.banner} />
         )}
       </TouchableOpacity>
       
@@ -311,9 +301,6 @@ export default function ProfileScreen() {
             source={{ uri: profileImage || 'https://via.placeholder.com/150' }}
             style={styles.profileImage}
           />
-          <View style={styles.profileEditIcon}>
-            <Ionicons name="camera" size={20} color="#fff" />
-          </View>
         </TouchableOpacity>
       </View>
       
@@ -449,29 +436,6 @@ const styles = StyleSheet.create({
     height: 200,
     backgroundColor: '#333',
   },
-  uploadOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#333',
-  },
-  uploadText: {
-    color: '#666',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  editIconOverlay: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 20,
-    padding: 8,
-  },
   profilePicContainer: {
     alignItems: 'center',
     marginTop: -75, // Negative margin to overlap banner
@@ -499,14 +463,6 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-  },
-  profileEditIcon: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 15,
-    padding: 6,
   },
   content: {
     padding: 20,

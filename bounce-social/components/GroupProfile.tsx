@@ -488,19 +488,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
           {bannerImage ? (
             <Image source={{ uri: bannerImage }} style={styles.banner} />
           ) : (
-            <View style={styles.banner}>
-              {isGroupCreator && (
-                <View style={styles.bannerPlaceholder}>
-                  <Ionicons name="camera" size={32} color="#666" />
-                  <Text style={styles.bannerPlaceholderText}>Tap to add banner</Text>
-                </View>
-              )}
-            </View>
-          )}
-          {bannerImage && isGroupCreator && (
-            <View style={styles.bannerEditIcon}>
-              <Ionicons name="camera" size={20} color="#fff" />
-            </View>
+            <View style={styles.banner} />
           )}
         </TouchableOpacity>
         
@@ -515,11 +503,6 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               source={{ uri: profileImage }}
               style={styles.profileImage}
             />
-            {isGroupCreator && (
-              <View style={styles.profileEditIcon}>
-                <Ionicons name="camera" size={16} color="#fff" />
-              </View>
-            )}
           </TouchableOpacity>
         </View>
         
@@ -1062,28 +1045,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 90,
     backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bannerPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bannerPlaceholderText: {
-    color: '#666',
-    fontSize: 14,
-    marginTop: 5,
-  },
-  bannerEditIcon: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   profilePicContainer: {
     alignItems: 'center',
@@ -1097,18 +1058,6 @@ const styles = StyleSheet.create({
     borderColor: '#000',
     backgroundColor: '#fff',
     overflow: 'hidden',
-    position: 'relative',
-  },
-  profileEditIcon: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   profileImage: {
     width: '100%',
