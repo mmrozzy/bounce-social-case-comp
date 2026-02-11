@@ -3,9 +3,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
+import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
+import { getGroupData } from '@/data/groupMockData';
 
 // Current user identifier (will be replaced with actual auth later)
-const CURRENT_USER_ID = 'currentUser';
+const CURRENT_USER_ID = 'current-user';
 
 interface GroupProfileProps {
   group: {
@@ -57,70 +59,60 @@ interface Member {
 
 // Sample members
 const SAMPLE_MEMBERS: Member[] = [
-  { id: '1', name: 'You', avatar: 'https://via.placeholder.com/50', role: 'host' },
-  { id: '2', name: 'John Smith', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '3', name: 'Sarah Johnson', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '4', name: 'Mike Davis', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '5', name: 'Emma Wilson', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '6', name: 'Chris Brown', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '7', name: 'Lisa Anderson', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: '8', name: 'Tom Martinez', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'current-user', name: 'You', avatar: 'https://via.placeholder.com/50', role: 'host' },
+  { id: 'user-2', name: 'Alex Chen', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-3', name: 'Maya Patel', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-4', name: 'Jordan Lee', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-5', name: 'Taylor Swift', avatar: 'https://via.placeholder.com/50', role: 'member' },
+  { id: 'user-6', name: 'Sam Rodriguez', avatar: 'https://via.placeholder.com/50', role: 'member' },
 ];
 
-// Sample events
-const SAMPLE_EVENTS: Event[] = [
-  { 
-    id: '1', 
-    eventName: 'Friday Basketball Game', 
-    amount: '15', 
-    creator: 'John', 
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '10:30 AM',
-    isOwn: false,
-    attendees: 8,
-    deadline: 'Feb 10, 6:00 PM',
-    type: 'event'
-  },
-  { 
-    id: '2', 
-    eventName: 'Weekend Tournament', 
-    amount: '25', 
-    creator: 'You', 
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '11:15 AM',
-    isOwn: true,
-    attendees: 12,
-    deadline: 'Feb 14, 5:00 PM',
-    type: 'event'
-  },
-  { 
-    id: '3', 
-    eventName: 'Sunday Practice Session', 
-    amount: '10', 
-    creator: 'Sarah', 
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '2:20 PM',
-    isOwn: false,
-    attendees: 5,
-    deadline: 'Feb 15, 12:00 PM',
-    type: 'event'
-  },
-];
-
-const SAMPLE_SPLITS: Split[] = [
-  {
-    id: '4',
-    eventName: 'Court Rental',
-    totalAmount: '100',
-    creator: 'Mike',
-    creatorAvatar: 'https://via.placeholder.com/40',
-    time: '1:45 PM',
-    isOwn: false,
-    participants: 4,
-    deadline: 'Feb 12, 8:00 PM',
-    type: 'split'
-  },
-];
+// Function to convert real events and transactions to activities format
+const convertEventsToActivities = (events: any[], transactions: any[]): Activity[] => {
+  const activities: Activity[] = [];
+  
+  // Convert events to activities
+  events.forEach(event => {
+    const eventTransactions = transactions.filter(t => t.eventId === event.id);
+    const isOwn = event.createdBy === 'current-user';
+    const amount = eventTransactions.length > 0 ? eventTransactions[0].totalAmount?.toString() || '0' : '0';
+    const creatorName = event.createdBy === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === event.createdBy)?.name || 'Unknown';
+    
+    activities.push({
+      id: event.id,
+      eventName: event.name,
+      amount: amount,
+      creator: creatorName,
+      creatorAvatar: 'https://via.placeholder.com/40',
+      time: new Date(event.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      isOwn: isOwn,
+      attendees: event.participants.length,
+      deadline: new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'event'
+    });
+  });
+  
+  // Convert split transactions to split activities
+  transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
+    const isOwn = transaction.from === 'current-user';
+    const creatorName = transaction.from === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === transaction.from)?.name || 'Unknown';
+    
+    activities.push({
+      id: transaction.id,
+      eventName: transaction.note || 'Split Payment',
+      totalAmount: transaction.totalAmount.toString(),
+      creator: creatorName,
+      creatorAvatar: 'https://via.placeholder.com/40',
+      time: new Date(transaction.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      isOwn: isOwn,
+      participants: transaction.participants?.length || 0,
+      deadline: new Date(transaction.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      type: 'split'
+    });
+  });
+  
+  return activities.sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime());
+};
 
 export default function GroupProfile({ group, onBack, initialActivityId }: GroupProfileProps) {
   const [showCreateEvent, setShowCreateEvent] = useState(false);
@@ -128,12 +120,30 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activities, setActivities] = useState<Activity[]>([...SAMPLE_EVENTS, ...SAMPLE_SPLITS]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set(['2'])); // '2' is the user's own event
   const [members] = useState<Member[]>(SAMPLE_MEMBERS);
+  const [showPersonaDetails, setShowPersonaDetails] = useState(false);
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
+
+  // Get group data and calculate persona
+  const groupData = getGroupData(group.id);
+  const groupPersona = groupData 
+    ? analyzeGroupPersona(
+        group.id,
+        groupData.members,
+        groupData.transactions,
+        groupData.events,
+        [groupData.group]
+      )
+    : null;
+
+  // Convert real events to activities format
+  const initialActivities = groupData ? convertEventsToActivities(groupData.events, groupData.transactions) : [];
+  const [activities, setActivities] = useState<Activity[]>(initialActivities);
+  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(
+    new Set(initialActivities.filter(a => a.isOwn).map(a => a.id))
+  );
   
   const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -280,6 +290,142 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
             <Text style={styles.memberCount}>{group.members} members</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Group Persona Section */}
+        {groupPersona && groupPersona.groupStats.totalEvents > 0 ? (
+          <TouchableOpacity 
+            style={styles.groupPersonaSection}
+            onPress={() => setShowPersonaDetails(!showPersonaDetails)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.personaHeader}>
+              <Text style={styles.personaBadgeEmoji}>{groupPersona.dominantPersona.emoji}</Text>
+              <View style={styles.personaInfo}>
+                <Text style={styles.personaType}>
+                  {groupPersona.dominantPersona.type.replace(/([A-Z])/g, ' $1').trim()}
+                </Text>
+                <Text style={styles.personaDescription}>
+                  {groupPersona.dominantPersona.description}
+                </Text>
+              </View>
+              <Ionicons 
+                name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color="#C3F73A" 
+              />
+            </View>
+
+            {showPersonaDetails && (
+              <View style={styles.personaDetails}>
+                {/* Group Traits */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>✨ Group Vibe</Text>
+                  {groupPersona.groupTraits.map((trait, index) => (
+                    <Text key={index} style={styles.traitText}>• {trait}</Text>
+                  ))}
+                </View>
+
+                {/* Persona Distribution */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>👥 Member Personas</Text>
+                  {groupPersona.personaDistribution.map((dist, index) => (
+                    <View key={index} style={styles.statRow}>
+                      <Text style={styles.statLabel}>
+                        {dist.emoji} {dist.personaKey.replace(/([A-Z])/g, ' $1').trim()}
+                      </Text>
+                      <Text style={styles.statValue}>
+                        {dist.count} ({dist.percentage}%)
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Group Stats */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>📊 Group Stats</Text>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Total Events</Text>
+                    <Text style={styles.statValue}>{groupPersona.groupStats.totalEvents}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Total Spent</Text>
+                    <Text style={styles.statValue}>${groupPersona.groupStats.totalSpent.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Avg Event Cost</Text>
+                    <Text style={styles.statValue}>${groupPersona.groupStats.avgEventCost.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Group Generosity</Text>
+                    <Text style={styles.statValue}>{(groupPersona.groupStats.groupGenerosity * 100).toFixed(0)}%</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Most Active Time</Text>
+                    <Text style={styles.statValue}>{groupPersona.groupStats.mostActiveTime}:00</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={styles.groupPersonaSectionEmpty}
+            onPress={() => setShowPersonaDetails(!showPersonaDetails)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.personaHeader}>
+              <Text style={styles.personaBadgeEmoji}>🚀</Text>
+              <View style={styles.personaInfo}>
+                <Text style={styles.personaTypeEmpty}>
+                  Get ready to start your spending adventure!
+                </Text>
+                <Text style={styles.personaDescriptionEmpty}>
+                  Tap to learn about group personas
+                </Text>
+              </View>
+              <Ionicons 
+                name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color="#666" 
+              />
+            </View>
+
+            {showPersonaDetails && (
+              <View style={styles.personaDetails}>
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>🎭 What are Group Personas?</Text>
+                  <Text style={styles.emptyExplanationText}>
+                    As your group creates events and splits expenses, we'll analyze your collective behavior to discover your group's unique personality!
+                  </Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>📊 What We Track</Text>
+                  <Text style={styles.traitText}>• Event frequency and timing</Text>
+                  <Text style={styles.traitText}>• Spending patterns and budget preferences</Text>
+                  <Text style={styles.traitText}>• Group size preferences</Text>
+                  <Text style={styles.traitText}>• Payment speed and generosity</Text>
+                  <Text style={styles.traitText}>• Activity level and social dynamics</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>✨ Example Personas</Text>
+                  <Text style={styles.traitText}>🌟 The Party Crew - High energy, frequent events</Text>
+                  <Text style={styles.traitText}>📅 The Organized Squad - Well-planned meetups</Text>
+                  <Text style={styles.traitText}>🍜 The Culinary Club - Premium dining experiences</Text>
+                  <Text style={styles.traitText}>💸 The Budget Conscious - Smart spenders</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>🚀 Get Started</Text>
+                  <Text style={styles.emptyExplanationText}>
+                    Create your first event or split to start building your group's personality profile. The more activities you do together, the more accurate your persona becomes!
+                  </Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Create Event Button Section */}
         <View style={styles.actionSection}>
@@ -688,6 +834,99 @@ const styles = StyleSheet.create({
   memberCount: {
     color: '#666',
     fontSize: 14,
+  },
+  groupPersonaSection: {
+    backgroundColor: '#1a1a1a',
+    marginHorizontal: 20,
+    marginVertical: 15,
+    borderRadius: 15,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#C3F73A',
+  },
+  groupPersonaSectionEmpty: {
+    backgroundColor: '#1a1a1a',
+    marginHorizontal: 20,
+    marginVertical: 15,
+    borderRadius: 15,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  personaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  personaBadgeEmoji: {
+    fontSize: 36,
+    marginRight: 12,
+  },
+  personaInfo: {
+    flex: 1,
+  },
+  personaType: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    marginBottom: 2,
+    textTransform: 'capitalize',
+  },
+  personaTypeEmpty: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  personaDescription: {
+    fontSize: 12,
+    color: '#999',
+    lineHeight: 16,
+  },
+  personaDescriptionEmpty: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 16,
+  },
+  personaDetails: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  detailSection: {
+    marginBottom: 16,
+  },
+  detailSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  traitText: {
+    fontSize: 12,
+    color: '#ccc',
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  emptyExplanationText: {
+    fontSize: 12,
+    color: '#999',
+    lineHeight: 18,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#999',
+  },
+  statValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#C3F73A',
   },
   actionSection: {
     paddingHorizontal: 20,
