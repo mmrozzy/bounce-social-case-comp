@@ -13,19 +13,19 @@ export default function TabLayout() {
           tabBarActiveTintColor: '#fff',
           tabBarInactiveTintColor: '#666',
           tabBarStyle: {
-            backgroundColor: '#000',
+            backgroundColor: '#0a0a0a',
             borderTopColor: '#333',
           },
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#000',
+            backgroundColor: '#0a0a0a',
             height: 120,
             borderBottomWidth: 2,
             borderBottomColor: '#C3F73A',
             shadowColor: '#C3F73A',
-            shadowOffset: { width: 0, height: 8 },
+            shadowOffset: { width: 0, height: 1 },
             shadowOpacity: 1.0,
-            shadowRadius: 20,
+            shadowRadius: 5,
             elevation: 15,
           },
           headerTitle: () => (
