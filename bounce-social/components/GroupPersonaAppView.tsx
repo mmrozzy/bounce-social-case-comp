@@ -434,7 +434,7 @@ export default function GroupWrappedAppView({
 
               <TouchableOpacity activeOpacity={0.7} style={[styles.bentoCardSmall, { backgroundColor: theme.cardBg }]}>
                 <Text style={styles.cardIconLarge}>❤️</Text>
-                <Text style={[styles.cardValueHuge, { color: theme.colors[2] }]} numberOfLines={1}>
+                <Text style={[styles.cardValueHuge, { color: theme.colors[2] }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
                   {Math.round(groupPersona.groupStats.groupGenerosity * 100)}%
                 </Text>
                 <Text style={[styles.cardLabelBold, { color: theme.textPrimary }]}>Generosity</Text>
