@@ -1110,7 +1110,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#333333',
   },
   scrollView: {
     flex: 1,
@@ -1148,7 +1148,7 @@ const styles = StyleSheet.create({
   banner: {
     width: '100%',
     height: 90,
-    backgroundColor: '#333',
+    backgroundColor: '#1a1a1a',
   },
   profilePicContainer: {
     alignItems: 'center',
@@ -1158,7 +1158,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#000',
     backgroundColor: '#fff',
     overflow: 'hidden',
@@ -1315,6 +1315,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 30,
+    backgroundColor: '#272727',
   },
   sectionTitle: {
     color: '#fff',

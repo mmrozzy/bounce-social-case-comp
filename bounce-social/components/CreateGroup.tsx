@@ -142,7 +142,7 @@ export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#333333',
   },
   header: {
     flexDirection: 'row',
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   createButtonDisabled: {
-    backgroundColor: '#333',
+    backgroundColor: '#585858',
     opacity: 0.5,
   },
   createButtonText: {

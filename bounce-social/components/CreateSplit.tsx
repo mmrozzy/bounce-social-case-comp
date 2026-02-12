@@ -49,7 +49,7 @@ export default function CreateSplit({ onBack, onCreateSplit }: CreateSplitProps)
             <Text style={styles.label}>Split Name</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Court Rental费用"
+              placeholder="e.g. Uber to Downtown"
               placeholderTextColor="#666"
               value={eventName}
               onChangeText={setEventName}
@@ -114,7 +114,7 @@ export default function CreateSplit({ onBack, onCreateSplit }: CreateSplitProps)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#1a1a1a',
   },
   header: {
     flexDirection: 'row',

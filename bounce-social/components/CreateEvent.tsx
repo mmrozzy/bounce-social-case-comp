@@ -116,7 +116,7 @@ export default function CreateEvent({ onBack, onCreateEvent }: CreateEventProps)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#1a1a1a',
   },
   header: {
     flexDirection: 'row',
