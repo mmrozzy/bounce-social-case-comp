@@ -1,7 +1,19 @@
 import { Modal } from 'react-native';
 import { useState } from 'react';
-import GroupPersonaAppView from './GroupPersonaAppView';
-import ShareablePersona from './ShareablePersona';
+import GroupWrappedAppView from './GroupPersonaAppView';
+import ShareableWrapped from './ShareablePersona';
+
+// ThemeType must match what's in both component files
+type ThemeType = {
+  id: string;
+  name: string;
+  colors: string[];
+  bg: string;
+  cardBg: string;
+  textPrimary: string;
+  textSecondary: string;
+  bgPattern: string;
+};
 
 interface PersonaWrapperProps {
   groupPersona: any;
@@ -15,34 +27,31 @@ export default function PersonaWrapper({
   onClose 
 }: PersonaWrapperProps) {
   const [showShareView, setShowShareView] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState({
-    primary: '#C3F73A',
-    secondary: '#FF006E',
-    tertiary: '#8338EC',
-    quaternary: '#3A86FF',
-    gradient: ['#C3F73A', '#FF006E'],
-  });
+  const [selectedTheme, setSelectedTheme] = useState<ThemeType | null>(null);
 
   return (
     <>
-      <GroupPersonaAppView
+      <GroupWrappedAppView
         groupPersona={groupPersona}
         groupName={groupName}
         onClose={onClose}
-        onShare={() => setShowShareView(true)}
+        onShare={(theme) => {
+          setSelectedTheme(theme);
+          setShowShareView(true);
+        }}
       />
 
-      {showShareView && (
+      {showShareView && selectedTheme && (
         <Modal
           visible={true}
           animationType="slide"
           presentationStyle="fullScreen"
         >
-          <ShareablePersona
+          <ShareableWrapped
             groupPersona={groupPersona}
             groupName={groupName}
-            theme={selectedTheme}
-            onClose={() => setShowShareView(false)}
+            selectedTheme={selectedTheme}
+            onBack={() => setShowShareView(false)}
           />
         </Modal>
       )}
