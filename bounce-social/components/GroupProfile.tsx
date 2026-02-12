@@ -91,7 +91,8 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
     const creatorName = transaction.from === 'current-user' ? 'You' : members.find(m => m.id === transaction.from)?.name || 'Unknown';
-    const splitDate = new Date(transaction.createdAt);
+    // Use deadline if available, otherwise fall back to createdAt
+    const splitDate = new Date(transaction.deadline || transaction.createdAt);
     
     activities.push({
       id: transaction.id,
@@ -350,8 +351,8 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         from: CURRENT_USER_ID,
         totalAmount: parseFloat(totalAmount),
         note: eventName, // Save the split name in the note field
+        deadline: splitDate.toISOString(), // Store the deadline in dedicated field
         participants: [CURRENT_USER_ID],
-        createdAt: splitDate.toISOString(), // Store the deadline as createdAt
         splits: [{
           userId: CURRENT_USER_ID,
           paid: parseFloat(totalAmount),

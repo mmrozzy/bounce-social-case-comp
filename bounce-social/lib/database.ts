@@ -356,6 +356,7 @@ export async function getTransactions(groupId?: string, eventId?: string) {
     amount: tx.amount,
     totalAmount: tx.total_amount,
     note: tx.note,
+    deadline: tx.deadline, // Add deadline mapping
     splits: tx.splits,
     participants: tx.participants,
     createdAt: tx.created_at
@@ -377,7 +378,8 @@ export async function createTransaction(transaction: Partial<Transaction>) {
       to_user: transaction.type === 'p2p' ? (transaction as any).to : null,
       amount: transaction.type === 'event' ? (transaction as any).amount : null,
       total_amount: transaction.totalAmount,
-      note: transaction.type === 'p2p' ? (transaction as any).note : null,
+      note: (transaction as any).note || null, // Save note for all types (splits and p2p)
+      deadline: (transaction as any).deadline || null, // Save deadline for splits
       splits: transaction.type === 'split' ? (transaction as any).splits : null,
       participants: (transaction as any).participants || []
     })
