@@ -193,13 +193,17 @@ export default function GroupsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#131313',
+    backgroundColor: '#333333',
   },
   groupItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
-    backgroundColor: '#202020',
+    backgroundColor: '#222222',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#333',
+    marginHorizontal: 15,
   },
   groupItemImageContainer: {
     width: 60,
@@ -256,8 +260,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   separator: {
-    height: 1,
-    backgroundColor: '#131313',
+    height: 4,
+    backgroundColor: '#333333',
     marginLeft: 90,
   },
   createGroupButton: {
