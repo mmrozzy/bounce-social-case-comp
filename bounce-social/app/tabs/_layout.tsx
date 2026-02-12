@@ -2,10 +2,74 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications'; 
+import { useEffect } from 'react'; 
 import { ImageCacheProvider } from '@/lib/ImageCacheContext';
 
+// Configure notification behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 export default function TabLayout() {
+  useEffect(() => {
+    setupNotifications();
+  }, []);
+
+  async function setupNotifications() {
+    try {
+      // Set up Android notification channel FIRST (required for Android 8+)
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Payment Reminders',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#C3F73A',
+        });
+        console.log('Android notification channel created');
+      }
+
+      // Request permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        console.log('Notification permission denied');
+        return;
+      }
+      
+      console.log('Notification permission granted');
+      
+      // ONLY get push token on iOS (Android throws error in Expo Go SDK 53+)
+      if (Platform.OS === 'ios') {
+        try {
+          const token = (await Notifications.getExpoPushTokenAsync()).data;
+          console.log('📱 iOS Push Token:', token);
+        } catch (error) {
+          console.log('Could not get push token:', error);
+        }
+      } else {
+        console.log('Android: Skipping push token (not needed for local notifications)');
+      }
+      
+    } catch (error) {
+      console.error('Notification setup error:', error);
+      // Don't crash the app if notifications fail
+    }
+  }
+  
   return (
     <ImageCacheProvider>
       <Tabs
@@ -69,4 +133,3 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
 });
-

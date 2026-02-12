@@ -1,22 +1,29 @@
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, TextInput, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface CreateEventProps {
   onBack: () => void;
-  onCreateEvent: (eventName: string, amount: string, deadline: string) => void;
+  onCreateEvent: (eventName: string, amount: string, deadline: Date) => void;
 }
 
 export default function CreateEvent({ onBack, onCreateEvent }: CreateEventProps) {
   const [eventName, setEventName] = useState('');
   const [amount, setAmount] = useState('');
-  const [deadline, setDeadline] = useState('');
+  const [deadline, setDeadline] = useState<Date | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   const handleCreate = () => {
-    if (eventName.trim() && amount.trim() && deadline.trim()) {
+    if (eventName.trim() && amount.trim() && deadline) {
       onCreateEvent(eventName, amount, deadline);
       onBack();
     }
+  };
+
+  const onChange = (event: any, selectedDate?: Date) => {
+    setShowPicker(Platform.OS === 'ios'); // iOS keeps picker open
+    if (selectedDate) setDeadline(selectedDate);
   };
 
   return (
@@ -30,54 +37,78 @@ export default function CreateEvent({ onBack, onCreateEvent }: CreateEventProps)
         <View style={styles.placeholder} />
       </View>
 
-      {/* Form */}
-      <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Event Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Friday Basketball Game"
-            placeholderTextColor="#666"
-            value={eventName}
-            onChangeText={setEventName}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Amount Per Person</Text>
-          <View style={styles.amountInputContainer}>
-            <Text style={styles.currencySymbol}>$</Text>
+      {/* Form - wrapped in ScrollView for scrollability */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.form}>
+          {/* Event Name */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Event Name</Text>
             <TextInput
-              style={styles.amountInput}
-              placeholder="0.00"
+              style={styles.input}
+              placeholder="e.g. Friday Basketball Game"
               placeholderTextColor="#666"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
+              value={eventName}
+              onChangeText={setEventName}
             />
           </View>
-        </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Payment Deadline</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Feb 10, 6:00 PM"
-            placeholderTextColor="#666"
-            value={deadline}
-            onChangeText={setDeadline}
-          />
-          <Text style={styles.helperText}>You'll be charged on this date if attending</Text>
-        </View>
+          {/* Amount */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Amount Per Person</Text>
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>$</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0.00"
+                placeholderTextColor="#666"
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
 
-        <TouchableOpacity 
-          style={[styles.createButton, (!eventName.trim() || !amount.trim() || !deadline.trim()) && styles.createButtonDisabled]}
-          onPress={handleCreate}
-          disabled={!eventName.trim() || !amount.trim() || !deadline.trim()}
-        >
-          <Text style={styles.createButtonText}>Create Event</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Deadline */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Payment Deadline</Text>
+            <TouchableOpacity
+              style={[styles.input, { justifyContent: 'center' }]}
+              onPress={() => setShowPicker(true)}
+            >
+              <Text style={{ color: deadline ? '#fff' : '#666', fontSize: 16 }}>
+                {deadline ? deadline.toLocaleString() : 'Select date & time'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.helperText}>You'll be charged on this date if attending</Text>
+          </View>
+
+          {showPicker && (
+            <DateTimePicker
+              value={deadline || new Date()}
+              mode="datetime"
+              display="default"
+              onChange={onChange}
+              minimumDate={new Date()}
+            />
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.createButton,
+              (!eventName.trim() || !amount.trim() || !deadline) && styles.createButtonDisabled,
+            ]}
+            onPress={handleCreate}
+            disabled={!eventName.trim() || !amount.trim() || !deadline}
+          >
+            <Text style={styles.createButtonText}>Create Event</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -106,6 +137,13 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 38,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   form: {
     padding: 20,

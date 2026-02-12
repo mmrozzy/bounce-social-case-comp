@@ -7,6 +7,8 @@ import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
+import { Share } from 'react-native';
+import SendNotification from './Notification';
 import PersonaWrapper from './GroupPersona';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -92,7 +94,8 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
     const creatorName = transaction.from === 'current-user' ? 'You' : members.find(m => m.id === transaction.from)?.name || 'Unknown';
-    const splitDate = new Date(transaction.createdAt);
+    // Use deadline if available, otherwise fall back to createdAt
+    const splitDate = new Date(transaction.deadline || transaction.createdAt);
     
     activities.push({
       id: transaction.id,
@@ -295,11 +298,10 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
   }, [initialActivityId]);
 
-  const handleCreateEvent = async (eventName: string, amount: string, deadline: string) => {
+  const handleCreateEvent = async (eventName: string, amount: string, deadline: Date) => {
     try {
-      // For now, use current time + 1 day as event date (TODO: implement proper date picker)
-      const eventDate = new Date();
-      eventDate.setDate(eventDate.getDate() + 1);
+      // Use the Date object directly - it's already a Date
+      const eventDate = deadline;
       
       // Save to database and get the created event
       const newEvent = await createEvent(
@@ -337,12 +339,15 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       setShowCreateEvent(false);
     } catch (error) {
       console.error('Error creating event:', error);
-      // TODO: Show error message to user
+      Alert.alert('Error', 'Failed to create event. Please try again.');
     }
   };
 
-  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: string) => {
+  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: Date) => {
     try {
+      // Use the Date object directly - it's already a Date
+      const splitDate = deadline;
+      
       // Save split as a transaction to database
       await createTransaction({
         eventId: null,
@@ -351,6 +356,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         from: CURRENT_USER_ID,
         totalAmount: parseFloat(totalAmount),
         note: eventName, // Save the split name in the note field
+        deadline: splitDate.toISOString(), // Store the deadline in dedicated field
         participants: [CURRENT_USER_ID],
         splits: [{
           userId: CURRENT_USER_ID,
@@ -377,7 +383,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       setShowCreateSplit(false);
     } catch (error) {
       console.error('Error creating split:', error);
-      // TODO: Show error message to user
+      Alert.alert('Error', 'Failed to create split. Please try again.');
     }
   };
 
@@ -461,6 +467,24 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     );
   };
 
+  const handleShareGroup = async () => {
+    try {
+      const result = await Share.share({
+        message: `Join our group "${group.name}" on [YourAppName]! Use this link: https://yourapp.com/group/${group.id}`,
+        url: `https://yourapp.com/group/${group.id}`,
+        title: `Join "${group.name}"!`
+      });
+      if (result.action === Share.sharedAction) {
+        console.log('Group shared successfully');
+      } else if (result.action === Share.dismissedAction) {
+        console.log('Share dismissed');
+      }
+    } catch (error) {
+      console.error('Error sharing group:', error);
+    }
+  };
+
+
   if (showCreateEvent) {
     return (
       <CreateEvent 
@@ -508,6 +532,12 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 onPress={() => setShowNotificationModal(true)}
               >
                 <Ionicons name="notifications" size={24} color="#C3F73A" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.shareButton} 
+                onPress={handleShareGroup}
+              >
+                <Ionicons name="share-social-outline" size={24} color="#C3F73A" />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.deleteButton}
@@ -897,48 +927,77 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
 
       {/* Notification Modal */}
       {showNotificationModal && (
+        <SendNotification
+          visible={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+          activities={activities}
+          totalMembers={group.members}
+          groupName={group.name}
+        />
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
         <Modal
           visible={true}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setShowNotificationModal(false)}
+          onRequestClose={() => {
+            setShowMembersModal(false);
+            setSearchQuery('');
+          }}
         >
-          <View style={styles.notificationModalOverlay}>
-            <View style={styles.notificationModalContent}>
-              <View style={styles.notificationModalHeader}>
-                <Text style={styles.notificationModalTitle}>Send Notification</Text>
-                <TouchableOpacity onPress={() => setShowNotificationModal(false)}>
+          <View style={styles.membersModalOverlay}>
+            <View style={styles.membersModalContent}>
+              <View style={styles.membersModalHeader}>
+                <Text style={styles.membersModalTitle}>Group Members</Text>
+                <TouchableOpacity onPress={() => {
+                  setShowMembersModal(false);
+                  setSearchQuery('');
+                }}>
                   <Ionicons name="close" size={28} color="#fff" />
                 </TouchableOpacity>
               </View>
               
-              <Text style={styles.notificationModalSubtitle}>Select an event to notify members about:</Text>
+              {/* Search Bar */}
+              <View style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search members..."
+                  placeholderTextColor="#666"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
               
+              {/* Members List */}
               <FlatList
-                data={activities.filter(a => a.type === 'event') as Event[]}
+                data={filteredMembers}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.notificationEventItem}
-                    onPress={() => {
-                      // TODO: Backend integration - send notification to all group members
-                      setShowNotificationModal(false);
-                      // For now, just close the modal
-                    }}
-                  >
-                    <View style={styles.notificationEventInfo}>
-                      <Text style={styles.notificationEventName}>{item.eventName}</Text>
-                      <Text style={styles.notificationEventDetails}>
-                        ${item.amount} • {item.deadline}
-                      </Text>
+                  <View style={styles.memberItem}>
+                    <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>{item.name}</Text>
+                      <View style={[
+                        styles.memberRoleBadge,
+                        item.role === 'host' && styles.memberRoleBadgeHost
+                      ]}>
+                        <Text style={[
+                          styles.memberRoleText,
+                          item.role === 'host' && styles.memberRoleTextHost
+                        ]}>
+                          {item.role === 'host' ? 'Host' : 'Member'}
+                        </Text>
+                      </View>
                     </View>
-                    <Ionicons name="send" size={24} color="#C3F73A" />
-                  </TouchableOpacity>
+                  </View>
                 )}
                 ListEmptyComponent={
-                  <Text style={styles.notificationEmptyText}>No events to notify about</Text>
+                  <Text style={styles.membersEmptyText}>No members found</Text>
                 }
-                style={styles.notificationEventList}
+                style={styles.membersList}
               />
             </View>
           </View>
@@ -1780,4 +1839,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#999',
 },
+  shareButton: {
+  padding: 10,
+  },
 });
