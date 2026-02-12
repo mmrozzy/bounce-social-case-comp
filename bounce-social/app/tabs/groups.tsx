@@ -7,6 +7,7 @@ import GroupProfile from '@/components/GroupProfile';
 import CreateGroup from '@/components/CreateGroup';
 import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
 import { getGroups, createGroup } from '@/lib/database';
+import { useImageCache } from '@/lib/ImageCacheContext';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -24,6 +25,7 @@ const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
 
 export default function GroupsScreen() {
   const navigation = useNavigation();
+  const { getGroupImages } = useImageCache();
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(undefined);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -52,14 +54,18 @@ export default function GroupsScreen() {
     try {
       setLoading(true);
       const groupsData = await getGroups();
-      // Convert to the format expected by the UI
-      const formattedGroups: Group[] = groupsData.map(g => ({
-        id: g.id,
-        name: g.name,
-        members: g.members.length,
-        image: 'https://via.placeholder.com/60',
-        createdBy: g.members[0] || 'current-user' // First member is creator
-      }));
+      // Convert to the format expected by the UI, using cached images
+      const formattedGroups: Group[] = groupsData.map((g: any) => {
+        const cachedImages = getGroupImages(g.id);
+        return {
+          id: g.id,
+          name: g.name,
+          members: g.members.length,
+          image: cachedImages?.profileImage || g.profileImage || 'https://via.placeholder.com/60',
+          banner: cachedImages?.bannerImage || g.bannerImage,
+          createdBy: g.members[0] || 'current-user' // First member is creator
+        };
+      });
       setGroups(formattedGroups);
     } catch (error) {
       console.error('Error loading groups:', error);
@@ -148,28 +154,35 @@ export default function GroupsScreen() {
               <Text style={styles.createGroupButtonText}>Create New Group</Text>
             </TouchableOpacity>
           }
-          renderItem={({ item, index }) => (
-          <TouchableOpacity 
-            style={styles.groupItem}
-            onPress={() => setSelectedGroup(item)}
-          >
-            <View style={styles.groupItemImageContainer}>
-              {item.image.startsWith('file://') || item.image.startsWith('content://') ? (
-                <>
-                  <Image source={{ uri: item.image }} style={styles.groupItemImageBackground} />
-                  <View style={styles.groupItemImageMask} />
-                </>
-              ) : (
-                <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
-              )}
-            </View>
-            <View style={styles.groupItemInfo}>
-              <Text style={styles.groupItemName}>{item.name}</Text>
-              <Text style={styles.groupItemMembers}>{item.members} members</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#666" />
-          </TouchableOpacity>
-        )}
+          renderItem={({ item, index }) => {
+            // Check if there's a valid image URL (http/https/file/content)
+            const hasValidImage = item.image && (
+              item.image.startsWith('http://') || 
+              item.image.startsWith('https://') || 
+              item.image.startsWith('file://') || 
+              item.image.startsWith('content://')
+            );
+            
+            return (
+              <TouchableOpacity 
+                style={styles.groupItem}
+                onPress={() => setSelectedGroup(item)}
+              >
+                <View style={styles.groupItemImageContainer}>
+                  {hasValidImage ? (
+                    <Image source={{ uri: item.image }} style={styles.groupItemImage} />
+                  ) : (
+                    <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
+                  )}
+                </View>
+                <View style={styles.groupItemInfo}>
+                  <Text style={styles.groupItemName}>{item.name}</Text>
+                  <Text style={styles.groupItemMembers}>{item.members} members</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#666" />
+              </TouchableOpacity>
+            );
+          }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
       )}
@@ -195,6 +208,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    borderRadius: 30,
+  },
+  groupItemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   groupItemDiamond: {
     width: 0,

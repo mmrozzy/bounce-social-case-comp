@@ -10,6 +10,8 @@ DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  profile_image TEXT,
+  banner_image TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -17,6 +19,8 @@ CREATE TABLE users (
 CREATE TABLE groups (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  profile_image TEXT,
+  banner_image TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

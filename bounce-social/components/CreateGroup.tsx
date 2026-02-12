@@ -25,7 +25,7 @@ export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps)
 
   const pickBannerImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [16, 9],
       quality: 1,
@@ -38,7 +38,7 @@ export default function CreateGroup({ onBack, onCreateGroup }: CreateGroupProps)
 
   const pickProfileImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,

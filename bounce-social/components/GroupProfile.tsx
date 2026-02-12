@@ -1,10 +1,12 @@
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction } from '@/lib/database';
+import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
+import { useImageCache } from '@/lib/ImageCacheContext';
 import SendNotification from './Notification';
 
 // Current user identifier (will be replaced with actual auth later)
@@ -58,18 +60,8 @@ interface Member {
   role: 'host' | 'member';
 }
 
-// Sample members
-const SAMPLE_MEMBERS: Member[] = [
-  { id: 'current-user', name: 'You', avatar: 'https://via.placeholder.com/50', role: 'host' },
-  { id: 'user-2', name: 'Alex Chen', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-3', name: 'Maya Patel', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-4', name: 'Jordan Lee', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-5', name: 'Taylor Swift', avatar: 'https://via.placeholder.com/50', role: 'member' },
-  { id: 'user-6', name: 'Sam Rodriguez', avatar: 'https://via.placeholder.com/50', role: 'member' },
-];
-
 // Function to convert real events and transactions to activities format
-const convertEventsToActivities = (events: any[], transactions: any[]): Activity[] => {
+const convertEventsToActivities = (events: any[], transactions: any[], members: Member[]): Activity[] => {
   const activities: Array<Activity & { dateObj: Date }> = [];
   
   // Convert events to activities
@@ -77,7 +69,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
     const eventTransactions = transactions.filter(t => t.eventId === event.id);
     const isOwn = event.createdBy === 'current-user';
     const amount = eventTransactions.length > 0 ? eventTransactions[0].totalAmount?.toString() || '0' : '0';
-    const creatorName = event.createdBy === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === event.createdBy)?.name || 'Unknown';
+    const creatorName = event.createdBy === 'current-user' ? 'You' : members.find(m => m.id === event.createdBy)?.name || 'Unknown';
     const eventDate = new Date(event.date);
     
     activities.push({
@@ -98,7 +90,7 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
   // Convert split transactions to split activities
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
-    const creatorName = transaction.from === 'current-user' ? 'You' : SAMPLE_MEMBERS.find(m => m.id === transaction.from)?.name || 'Unknown';
+    const creatorName = transaction.from === 'current-user' ? 'You' : members.find(m => m.id === transaction.from)?.name || 'Unknown';
     const splitDate = new Date(transaction.createdAt);
     
     activities.push({
@@ -123,13 +115,16 @@ const convertEventsToActivities = (events: any[], transactions: any[]): Activity
 };
 
 export default function GroupProfile({ group, onBack, initialActivityId }: GroupProfileProps) {
+  const { getGroupImages, updateGroupImages: updateCacheGroupImages } = useImageCache();
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showCreateSplit, setShowCreateSplit] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [members] = useState<Member[]>(SAMPLE_MEMBERS);
+  const [bannerImage, setBannerImage] = useState<string | null>(group.banner || null);
+  const [profileImage, setProfileImage] = useState<string | null>(group.image);
+  const [members, setMembers] = useState<Member[]>([]);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
   
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
@@ -141,6 +136,108 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
+  // Load cached images immediately, then check for updates in background
+  useEffect(() => {
+    // Load from cache instantly
+    const cachedImages = getGroupImages(group.id);
+    if (cachedImages) {
+      if (cachedImages.bannerImage) setBannerImage(cachedImages.bannerImage);
+      if (cachedImages.profileImage) setProfileImage(cachedImages.profileImage);
+    }
+    
+    // Check database for any updates in background (non-blocking)
+    loadGroupImages();
+  }, [group.id]);
+
+  const loadGroupImages = () => {
+    // Run in background without blocking UI
+    getGroupById(group.id)
+      .then(groupData => {
+        // Only update if images changed
+        if (groupData.bannerImage && groupData.bannerImage !== bannerImage) {
+          setBannerImage(groupData.bannerImage);
+          updateCacheGroupImages(group.id, undefined, groupData.bannerImage);
+        }
+        if (groupData.profileImage && groupData.profileImage !== profileImage) {
+          setProfileImage(groupData.profileImage);
+          updateCacheGroupImages(group.id, groupData.profileImage, undefined);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading group images:', error);
+      });
+  };
+
+  const pickBannerImage = async () => {
+    if (!isGroupCreator) {
+      Alert.alert('Permission Denied', 'Only the group creator can change the banner.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setBannerImage(uri);
+      try {
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `banner-${Date.now()}.jpg` },
+          'banners'
+        );
+        
+        // Update database with new URL
+        await updateGroupImages(group.id, undefined, publicUrl);
+        updateCacheGroupImages(group.id, undefined, publicUrl);
+        setBannerImage(publicUrl);
+      } catch (error) {
+        console.error('Error uploading banner:', error);
+        Alert.alert('Error', 'Failed to upload banner. Please try again.');
+        setBannerImage(group.banner || null);
+      }
+    }
+  };
+
+  const pickProfileImage = async () => {
+    if (!isGroupCreator) {
+      Alert.alert('Permission Denied', 'Only the group creator can change the profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setProfileImage(uri);
+      try {
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `profile-${Date.now()}.jpg` },
+          'profiles'
+        );
+        
+        // Update database with new URL
+        await updateGroupImages(group.id, publicUrl, undefined);
+        updateCacheGroupImages(group.id, publicUrl, undefined);
+        setProfileImage(publicUrl);
+      } catch (error) {
+        console.error('Error uploading profile image:', error);
+        Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+        setProfileImage(group.image);
+      }
+    }
+  };
+
   // Fetch group data from Supabase
   useEffect(() => {
     async function loadGroupData() {
@@ -149,6 +246,16 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         const data = await getGroupData(group.id);
         if (data) {
           setGroupData(data);
+          
+          // Transform database members to Member interface
+          const transformedMembers: Member[] = data.members.map((user: any) => ({
+            id: user.id,
+            name: user.id === 'current-user' ? 'You' : user.name,
+            avatar: 'https://via.placeholder.com/50',
+            role: user.id === group.createdBy ? 'host' : 'member'
+          }));
+          setMembers(transformedMembers);
+          
           const persona = analyzeGroupPersona(
             group.id,
             data.members,
@@ -158,7 +265,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
           );
           setGroupPersona(persona);
           
-          const acts = convertEventsToActivities(data.events, data.transactions);
+          const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
           setActivities(acts);
           setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
         }
@@ -191,8 +298,8 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       const eventDate = new Date();
       eventDate.setDate(eventDate.getDate() + 1);
       
-      // Save to database
-      await createEvent(
+      // Save to database and get the created event
+      const newEvent = await createEvent(
         group.id,
         eventName,
         eventDate.toISOString(), // Use ISO format for database
@@ -200,9 +307,9 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         [CURRENT_USER_ID] // Creator is the first participant
       );
 
-      // Create transaction for the event
+      // Create transaction for the event with the correct eventId
       await createTransaction({
-        eventId: null, // Will be set after event is created
+        eventId: newEvent.id, // Link transaction to the newly created event
         groupId: group.id,
         type: 'event',
         from: CURRENT_USER_ID,
@@ -213,7 +320,14 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       // Reload group data to show the new event
       const data = await getGroupData(group.id);
       if (data) {
-        const acts = convertEventsToActivities(data.events, data.transactions);
+        const transformedMembers: Member[] = data.members.map((user: any) => ({
+          id: user.id,
+          name: user.id === 'current-user' ? 'You' : user.name,
+          avatar: 'https://via.placeholder.com/50',
+          role: user.id === group.createdBy ? 'host' : 'member'
+        }));
+        setMembers(transformedMembers);
+        const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
         setActivities(acts);
         setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
       }
@@ -246,7 +360,14 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       // Reload group data to show the new split
       const data = await getGroupData(group.id);
       if (data) {
-        const acts = convertEventsToActivities(data.events, data.transactions);
+        const transformedMembers: Member[] = data.members.map((user: any) => ({
+          id: user.id,
+          name: user.id === 'current-user' ? 'You' : user.name,
+          avatar: 'https://via.placeholder.com/50',
+          role: user.id === group.createdBy ? 'host' : 'member'
+        }));
+        setMembers(transformedMembers);
+        const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
         setActivities(acts);
         setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
       }
@@ -314,7 +435,14 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               // Reload group data to show updated activities
               const data = await getGroupData(group.id);
               if (data) {
-                const acts = convertEventsToActivities(data.events, data.transactions);
+                const transformedMembers: Member[] = data.members.map((user: any) => ({
+                  id: user.id,
+                  name: user.id === 'current-user' ? 'You' : user.name,
+                  avatar: 'https://via.placeholder.com/50',
+                  role: user.id === group.createdBy ? 'host' : 'member'
+                }));
+                setMembers(transformedMembers);
+                const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
                 setActivities(acts);
                 setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
               }
@@ -413,20 +541,30 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         </View>
 
         {/* Banner */}
-        {group.banner ? (
-          <Image source={{ uri: group.banner }} style={styles.banner} />
-        ) : (
-          <View style={styles.banner} />
-        )}
+        <TouchableOpacity 
+          onPress={pickBannerImage}
+          activeOpacity={isGroupCreator ? 0.7 : 1}
+          style={styles.bannerContainer}
+        >
+          {bannerImage ? (
+            <Image source={{ uri: bannerImage }} style={styles.banner} />
+          ) : (
+            <View style={styles.banner} />
+          )}
+        </TouchableOpacity>
         
         {/* Group Picture */}
         <View style={styles.profilePicContainer}>
-          <View style={styles.profilePic}>
+          <TouchableOpacity 
+            onPress={pickProfileImage}
+            activeOpacity={isGroupCreator ? 0.7 : 1}
+            style={styles.profilePic}
+          >
             <Image 
-              source={{ uri: group.image }}
+              source={{ uri: profileImage || 'https://via.placeholder.com/150' }}
               style={styles.profileImage}
             />
-          </View>
+          </TouchableOpacity>
         </View>
         
         {/* Group Title & Members */}
@@ -989,6 +1127,9 @@ const styles = StyleSheet.create({
   backText: {
     color: '#C3F73A',
     fontSize: 16,
+  },
+  bannerContainer: {
+    position: 'relative',
   },
   banner: {
     width: '100%',

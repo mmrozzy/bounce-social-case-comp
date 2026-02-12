@@ -1,6 +1,55 @@
 import { supabase } from './supabase'
 import { User, Group, Event, Transaction } from '../src/types'
 
+// Upload image to Supabase Storage
+export async function uploadImage(file: { uri: string; type: string; name: string }, folder: 'profiles' | 'banners' | 'groups') {
+  try {
+    console.log('Starting image upload...', { uri: file.uri, folder });
+    
+    // Convert URI to ArrayBuffer for React Native compatibility
+    const response = await fetch(file.uri);
+    console.log('Fetched file, status:', response.status);
+    
+    const arrayBuffer = await response.arrayBuffer();
+    console.log('Converted to ArrayBuffer, size:', arrayBuffer.byteLength);
+    
+    // Generate unique filename
+    const fileExt = file.uri.split('.').pop() || 'jpg';
+    const fileName = `${folder}/${Date.now()}.${fileExt}`;
+    console.log('Upload filename:', fileName);
+    
+    // Upload to Supabase Storage using ArrayBuffer
+    const { data, error } = await supabase.storage
+      .from('images')
+      .upload(fileName, arrayBuffer, {
+        contentType: file.type || 'image/jpeg',
+        upsert: false
+      });
+    
+    if (error) {
+      console.error('Supabase upload error:', error);
+      throw error;
+    }
+    
+    console.log('Upload successful:', data);
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('images')
+      .getPublicUrl(fileName);
+    
+    console.log('Public URL:', publicUrl);
+    return publicUrl;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    throw error;
+  }
+}
+
 // Users
 export async function getUsers() {
   const { data, error } = await supabase
@@ -49,6 +98,8 @@ export async function getUserById(userId: string) {
   return {
     id: data.id,
     name: data.name,
+    profileImage: data.profile_image,
+    bannerImage: data.banner_image,
     joinedGroups: data.group_members?.map((gm: any) => gm.group_id) || []
   } as User
 }
@@ -64,6 +115,19 @@ export async function createUser(name: string) {
   return data
 }
 
+export async function updateUserImages(userId: string, profileImage?: string, bannerImage?: string) {
+  const updates: any = {}
+  if (profileImage !== undefined) updates.profile_image = profileImage
+  if (bannerImage !== undefined) updates.banner_image = bannerImage
+  
+  const { error } = await supabase
+    .from('users')
+    .update(updates)
+    .eq('id', userId)
+  
+  if (error) throw error
+}
+
 // Groups
 export async function getGroups() {
   const { data, error } = await supabase
@@ -76,6 +140,8 @@ export async function getGroups() {
   return data.map(group => ({
     id: group.id,
     name: group.name,
+    profileImage: group.profile_image,
+    bannerImage: group.banner_image,
     members: group.group_members?.map((gm: any) => gm.user_id) || [],
     createdAt: group.created_at
   })) as Group[]
@@ -94,6 +160,8 @@ export async function getGroupById(groupId: string) {
   return {
     id: data.id,
     name: data.name,
+    profileImage: data.profile_image,
+    bannerImage: data.banner_image,
     members: data.group_members?.map((gm: any) => gm.user_id) || [],
     createdAt: data.created_at
   } as Group
@@ -119,6 +187,19 @@ export async function createGroup(name: string, memberIds: string[]) {
   if (membersError) throw membersError
   
   return group
+}
+
+export async function updateGroupImages(groupId: string, profileImage?: string, bannerImage?: string) {
+  const updates: any = {}
+  if (profileImage !== undefined) updates.profile_image = profileImage
+  if (bannerImage !== undefined) updates.banner_image = bannerImage
+  
+  const { error } = await supabase
+    .from('groups')
+    .update(updates)
+    .eq('id', groupId)
+  
+  if (error) throw error
 }
 
 export async function deleteGroup(groupId: string) {

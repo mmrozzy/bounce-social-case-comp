@@ -4,14 +4,11 @@ import { useRouter } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setNavigationTarget } from '@/lib/navigationState';
 import { PersonaBadge } from '@/components/PersonaBadge';
 import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
-import { getUserById, getGroups, getEvents, getTransactions } from '@/lib/database';
-
-const PROFILE_BANNER_KEY = '@profile_banner';
-const PROFILE_IMAGE_KEY = '@profile_image';
+import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages } from '@/lib/database';
+import { useImageCache } from '@/lib/ImageCacheContext';
 
 interface RecentAction {
   id: string;
@@ -51,6 +48,7 @@ const getActionIcon = (type: RecentAction['type']) => {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { getUserImages, updateUserImages: updateCacheUserImages } = useImageCache();
   const [bannerImage, setBannerImage] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
@@ -181,8 +179,16 @@ export default function ProfileScreen() {
     userGroups
   ) : null;
 
-  // Load saved images on mount
+  // Load cached images immediately, then check for updates in background
   useEffect(() => {
+    // Load from cache instantly
+    const cachedImages = getUserImages('current-user');
+    if (cachedImages) {
+      if (cachedImages.bannerImage) setBannerImage(cachedImages.bannerImage);
+      if (cachedImages.profileImage) setProfileImage(cachedImages.profileImage);
+    }
+    
+    // Check database for any updates in background (non-blocking)
     loadImages();
     requestPermissions();
   }, []);
@@ -194,20 +200,28 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadImages = async () => {
-    try {
-      const savedBanner = await AsyncStorage.getItem(PROFILE_BANNER_KEY);
-      const savedProfile = await AsyncStorage.getItem(PROFILE_IMAGE_KEY);
-      if (savedBanner) setBannerImage(savedBanner);
-      if (savedProfile) setProfileImage(savedProfile);
-    } catch (error) {
-      console.error('Error loading images:', error);
-    }
+  const loadImages = () => {
+    // Run in background without blocking UI
+    getUserById('current-user')
+      .then(user => {
+        // Only update if images changed
+        if (user.bannerImage && user.bannerImage !== bannerImage) {
+          setBannerImage(user.bannerImage);
+          updateCacheUserImages('current-user', undefined, user.bannerImage);
+        }
+        if (user.profileImage && user.profileImage !== profileImage) {
+          setProfileImage(user.profileImage);
+          updateCacheUserImages('current-user', user.profileImage, undefined);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading images:', error);
+      });
   };
 
   const pickBannerImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [16, 9],
       quality: 1,
@@ -217,16 +231,26 @@ export default function ProfileScreen() {
       const uri = result.assets[0].uri;
       setBannerImage(uri);
       try {
-        await AsyncStorage.setItem(PROFILE_BANNER_KEY, uri);
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `banner-${Date.now()}.jpg` },
+          'banners'
+        );
+        
+        // Update database with new URL
+        await updateUserImages('current-user', undefined, publicUrl);
+        updateCacheUserImages('current-user', undefined, publicUrl);
+        setBannerImage(publicUrl);
       } catch (error) {
-        console.error('Error saving banner:', error);
+        console.error('Error uploading banner:', error);
+        Alert.alert('Error', 'Failed to upload banner. Please try again.');
       }
     }
   };
 
   const pickProfileImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
@@ -236,9 +260,19 @@ export default function ProfileScreen() {
       const uri = result.assets[0].uri;
       setProfileImage(uri);
       try {
-        await AsyncStorage.setItem(PROFILE_IMAGE_KEY, uri);
+        // Upload to Supabase Storage
+        const publicUrl = await uploadImage(
+          { uri, type: 'image/jpeg', name: `profile-${Date.now()}.jpg` },
+          'profiles'
+        );
+        
+        // Update database with new URL
+        await updateUserImages('current-user', publicUrl, undefined);
+        updateCacheUserImages('current-user', publicUrl, undefined);
+        setProfileImage(publicUrl);
       } catch (error) {
-        console.error('Error saving profile image:', error);
+        console.error('Error uploading profile image:', error);
+        Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
       }
     }
   };
@@ -280,17 +314,7 @@ export default function ProfileScreen() {
         {bannerImage ? (
           <Image source={{ uri: bannerImage }} style={styles.banner} />
         ) : (
-          <View style={styles.banner}>
-            <View style={styles.uploadOverlay}>
-              <Ionicons name="camera" size={40} color="#666" />
-              <Text style={styles.uploadText}>Tap to add banner</Text>
-            </View>
-          </View>
-        )}
-        {bannerImage && (
-          <View style={styles.editIconOverlay}>
-            <Ionicons name="camera" size={24} color="#fff" />
-          </View>
+          <View style={styles.banner} />
         )}
       </TouchableOpacity>
       
@@ -311,9 +335,6 @@ export default function ProfileScreen() {
             source={{ uri: profileImage || 'https://via.placeholder.com/150' }}
             style={styles.profileImage}
           />
-          <View style={styles.profileEditIcon}>
-            <Ionicons name="camera" size={20} color="#fff" />
-          </View>
         </TouchableOpacity>
       </View>
       
@@ -449,29 +470,6 @@ const styles = StyleSheet.create({
     height: 200,
     backgroundColor: '#333',
   },
-  uploadOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#333',
-  },
-  uploadText: {
-    color: '#666',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  editIconOverlay: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 20,
-    padding: 8,
-  },
   profilePicContainer: {
     alignItems: 'center',
     marginTop: -75, // Negative margin to overlap banner
@@ -499,14 +497,6 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-  },
-  profileEditIcon: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 15,
-    padding: 6,
   },
   content: {
     padding: 20,
