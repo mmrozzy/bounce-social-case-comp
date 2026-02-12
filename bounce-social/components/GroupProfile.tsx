@@ -7,6 +7,7 @@ import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
+import { Share } from 'react-native';
 import SendNotification from './Notification';
 
 // Current user identifier (will be replaced with actual auth later)
@@ -91,7 +92,8 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
     const creatorName = transaction.from === 'current-user' ? 'You' : members.find(m => m.id === transaction.from)?.name || 'Unknown';
-    const splitDate = new Date(transaction.createdAt);
+    // Use deadline if available, otherwise fall back to createdAt
+    const splitDate = new Date(transaction.deadline || transaction.createdAt);
     
     activities.push({
       id: transaction.id,
@@ -292,11 +294,10 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
   }, [initialActivityId]);
 
-  const handleCreateEvent = async (eventName: string, amount: string, deadline: string) => {
+  const handleCreateEvent = async (eventName: string, amount: string, deadline: Date) => {
     try {
-      // For now, use current time + 1 day as event date (TODO: implement proper date picker)
-      const eventDate = new Date();
-      eventDate.setDate(eventDate.getDate() + 1);
+      // Use the Date object directly - it's already a Date
+      const eventDate = deadline;
       
       // Save to database and get the created event
       const newEvent = await createEvent(
@@ -334,12 +335,15 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       setShowCreateEvent(false);
     } catch (error) {
       console.error('Error creating event:', error);
-      // TODO: Show error message to user
+      Alert.alert('Error', 'Failed to create event. Please try again.');
     }
   };
 
-  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: string) => {
+  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: Date) => {
     try {
+      // Use the Date object directly - it's already a Date
+      const splitDate = deadline;
+      
       // Save split as a transaction to database
       await createTransaction({
         eventId: null,
@@ -348,6 +352,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         from: CURRENT_USER_ID,
         totalAmount: parseFloat(totalAmount),
         note: eventName, // Save the split name in the note field
+        deadline: splitDate.toISOString(), // Store the deadline in dedicated field
         participants: [CURRENT_USER_ID],
         splits: [{
           userId: CURRENT_USER_ID,
@@ -374,7 +379,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       setShowCreateSplit(false);
     } catch (error) {
       console.error('Error creating split:', error);
-      // TODO: Show error message to user
+      Alert.alert('Error', 'Failed to create split. Please try again.');
     }
   };
 
@@ -458,6 +463,24 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     );
   };
 
+  const handleShareGroup = async () => {
+    try {
+      const result = await Share.share({
+        message: `Join our group "${group.name}" on [YourAppName]! Use this link: https://yourapp.com/group/${group.id}`,
+        url: `https://yourapp.com/group/${group.id}`,
+        title: `Join "${group.name}"!`
+      });
+      if (result.action === Share.sharedAction) {
+        console.log('Group shared successfully');
+      } else if (result.action === Share.dismissedAction) {
+        console.log('Share dismissed');
+      }
+    } catch (error) {
+      console.error('Error sharing group:', error);
+    }
+  };
+
+
   if (showCreateEvent) {
     return (
       <CreateEvent 
@@ -505,6 +528,12 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 onPress={() => setShowNotificationModal(true)}
               >
                 <Ionicons name="notifications" size={24} color="#C3F73A" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.shareButton} 
+                onPress={handleShareGroup}
+              >
+                <Ionicons name="share-social-outline" size={24} color="#C3F73A" />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.deleteButton}
@@ -1767,5 +1796,8 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#C3F73A',
     fontSize: 16,
+  },
+  shareButton: {
+  padding: 10,
   },
 });

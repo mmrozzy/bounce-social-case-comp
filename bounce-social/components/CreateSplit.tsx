@@ -1,22 +1,29 @@
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface CreateSplitProps {
   onBack: () => void;
-  onCreateSplit: (eventName: string, totalAmount: string, deadline: string) => void;
+  onCreateSplit: (eventName: string, totalAmount: string, deadline: Date) => void;
 }
 
 export default function CreateSplit({ onBack, onCreateSplit }: CreateSplitProps) {
   const [eventName, setEventName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
-  const [deadline, setDeadline] = useState('');
+  const [deadline, setDeadline] = useState<Date | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   const handleCreate = () => {
-    if (eventName.trim() && totalAmount.trim() && deadline.trim()) {
+    if (eventName.trim() && totalAmount.trim() && deadline) {
       onCreateSplit(eventName, totalAmount, deadline);
       onBack();
     }
+  };
+
+  const onChange = (event: any, selectedDate?: Date) => {
+    setShowPicker(Platform.OS === 'ios'); // iOS keeps picker open
+    if (selectedDate) setDeadline(selectedDate);
   };
 
   return (
@@ -30,55 +37,76 @@ export default function CreateSplit({ onBack, onCreateSplit }: CreateSplitProps)
         <View style={styles.placeholder} />
       </View>
 
-      {/* Form */}
-      <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Split Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Court Rental费用"
-            placeholderTextColor="#666"
-            value={eventName}
-            onChangeText={setEventName}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Total Amount</Text>
-          <View style={styles.amountInputContainer}>
-            <Text style={styles.currencySymbol}>$</Text>
+      {/* Form - wrapped in ScrollView for scrollability */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Split Name</Text>
             <TextInput
-              style={styles.amountInput}
-              placeholder="0.00"
+              style={styles.input}
+              placeholder="e.g. Court Rental费用"
               placeholderTextColor="#666"
-              value={totalAmount}
-              onChangeText={setTotalAmount}
-              keyboardType="decimal-pad"
+              value={eventName}
+              onChangeText={setEventName}
             />
           </View>
-          <Text style={styles.helperText}>Split percentage will be calculated based on participants</Text>
-        </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Payment Deadline</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Feb 10, 6:00 PM"
-            placeholderTextColor="#666"
-            value={deadline}
-            onChangeText={setDeadline}
-          />
-          <Text style={styles.helperText}>You'll be charged on this date if participating</Text>
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Total Amount</Text>
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>$</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0.00"
+                placeholderTextColor="#666"
+                value={totalAmount}
+                onChangeText={setTotalAmount}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <Text style={styles.helperText}>Split percentage will be calculated based on participants</Text>
+          </View>
 
-        <TouchableOpacity 
-          style={[styles.createButton, (!eventName.trim() || !totalAmount.trim() || !deadline.trim()) && styles.createButtonDisabled]}
-          onPress={handleCreate}
-          disabled={!eventName.trim() || !totalAmount.trim() || !deadline.trim()}
-        >
-          <Text style={styles.createButtonText}>Create Split</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Payment Deadline</Text>
+            <TouchableOpacity
+              style={[styles.input, { justifyContent: 'center' }]}
+              onPress={() => setShowPicker(true)}
+            >
+              <Text style={{ color: deadline ? '#fff' : '#666', fontSize: 16 }}>
+                {deadline ? deadline.toLocaleString() : 'Select date & time'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.helperText}>You'll be charged on this date if participating</Text>
+          </View>
+
+          {showPicker && (
+            <DateTimePicker
+              value={deadline || new Date()}
+              mode="datetime"
+              display="default"
+              onChange={onChange}
+              minimumDate={new Date()}
+            />
+          )}
+
+          <TouchableOpacity 
+            style={[
+              styles.createButton, 
+              (!eventName.trim() || !totalAmount.trim() || !deadline) && styles.createButtonDisabled
+            ]}
+            onPress={handleCreate}
+            disabled={!eventName.trim() || !totalAmount.trim() || !deadline}
+          >
+            <Text style={styles.createButtonText}>Create Split</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -107,6 +135,13 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 38,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   form: {
     padding: 20,
@@ -155,27 +190,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     paddingVertical: 15,
     fontSize: 16,
-  },
-  percentageInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#222',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  percentageInput: {
-    flex: 1,
-    color: '#fff',
-    paddingVertical: 15,
-    fontSize: 16,
-  },
-  percentageSymbol: {
-    color: '#4FC3F7',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginLeft: 5,
   },
   createButton: {
     backgroundColor: '#4FC3F7',
