@@ -34,6 +34,7 @@ interface Event {
   amount: string;
   creator: string;
   creatorAvatar: string;
+  creatorInitial: string; 
   time: string;
   isOwn: boolean;
   attendees: number;
@@ -47,6 +48,7 @@ interface Split {
   totalAmount: string;
   creator: string;
   creatorAvatar: string;
+  creatorInitial: string;
   time: string;
   isOwn: boolean;
   participants: number;
@@ -72,7 +74,13 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
     const eventTransactions = transactions.filter(t => t.eventId === event.id);
     const isOwn = event.createdBy === 'current-user';
     const amount = eventTransactions.length > 0 ? eventTransactions[0].totalAmount?.toString() || '0' : '0';
-    const creatorName = event.createdBy === 'current-user' ? 'You' : members.find(m => m.id === event.createdBy)?.name || 'Unknown';
+    
+    // Find creator member info
+    const creatorMember = members.find(m => m.id === event.createdBy);
+    const creatorName = creatorMember?.name || 'Unknown';
+    const creatorAvatar = creatorMember?.avatar || 'https://via.placeholder.com/40';
+    const creatorInitial = creatorName.charAt(0).toUpperCase();
+    
     const eventDate = new Date(event.date);
     
     activities.push({
@@ -80,7 +88,8 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
       eventName: event.name,
       amount: amount,
       creator: creatorName,
-      creatorAvatar: 'https://via.placeholder.com/40',
+      creatorAvatar: creatorAvatar,
+      creatorInitial: creatorInitial, 
       time: eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       isOwn: isOwn,
       attendees: event.participants.length,
@@ -93,8 +102,13 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
   // Convert split transactions to split activities
   transactions.filter(t => t.type === 'split' && !events.find(e => e.id === t.eventId)).forEach(transaction => {
     const isOwn = transaction.from === 'current-user';
-    const creatorName = transaction.from === 'current-user' ? 'You' : members.find(m => m.id === transaction.from)?.name || 'Unknown';
-    // Use deadline if available, otherwise fall back to createdAt
+    
+    // Find creator member info
+    const creatorMember = members.find(m => m.id === transaction.from);
+    const creatorName = creatorMember?.name || 'Unknown';
+    const creatorAvatar = creatorMember?.avatar || 'https://via.placeholder.com/40';
+    const creatorInitial = creatorName.charAt(0).toUpperCase();
+    
     const splitDate = new Date(transaction.deadline || transaction.createdAt);
     
     activities.push({
@@ -102,7 +116,8 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
       eventName: transaction.note || 'Split Payment',
       totalAmount: transaction.totalAmount.toString(),
       creator: creatorName,
-      creatorAvatar: 'https://via.placeholder.com/40',
+      creatorAvatar: creatorAvatar,
+      creatorInitial: creatorInitial, // ADD THIS
       time: splitDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       isOwn: isOwn,
       participants: transaction.participants?.length || 0,
@@ -112,7 +127,6 @@ const convertEventsToActivities = (events: any[], transactions: any[], members: 
     });
   });
   
-  // Sort by actual date (most recent first) and remove dateObj
   return activities
     .sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime())
     .map(({ dateObj, ...activity }) => activity as Activity);
@@ -256,7 +270,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
           // Transform database members to Member interface
           const transformedMembers: Member[] = data.members.map((user: any) => ({
             id: user.id,
-            name: user.id === 'current-user' ? 'You' : user.name,
+            name: user.name,
             avatar: 'https://via.placeholder.com/50',
             role: user.id === group.createdBy ? 'host' : 'member'
           }));
@@ -327,7 +341,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       if (data) {
         const transformedMembers: Member[] = data.members.map((user: any) => ({
           id: user.id,
-          name: user.id === 'current-user' ? 'You' : user.name,
+          name: user.name,
           avatar: 'https://via.placeholder.com/50',
           role: user.id === group.createdBy ? 'host' : 'member'
         }));
@@ -371,7 +385,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       if (data) {
         const transformedMembers: Member[] = data.members.map((user: any) => ({
           id: user.id,
-          name: user.id === 'current-user' ? 'You' : user.name,
+          name: user.name,
           avatar: 'https://via.placeholder.com/50',
           role: user.id === group.createdBy ? 'host' : 'member'
         }));
@@ -446,7 +460,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               if (data) {
                 const transformedMembers: Member[] = data.members.map((user: any) => ({
                   id: user.id,
-                  name: user.id === 'current-user' ? 'You' : user.name,
+                  name: user.name,
                   avatar: 'https://via.placeholder.com/50',
                   role: user.id === group.createdBy ? 'host' : 'member'
                 }));
@@ -470,8 +484,8 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const handleShareGroup = async () => {
     try {
       const result = await Share.share({
-        message: `Join our group "${group.name}" on [YourAppName]! Use this link: https://yourapp.com/group/${group.id}`,
-        url: `https://yourapp.com/group/${group.id}`,
+        message: `Join our group "${group.name}" on Bounce Pay! Use this link: https://bouncepay.com/group/${group.id}`,
+        url: `https://bouncepay.com/group/${group.id}`,
         title: `Join "${group.name}"!`
       });
       if (result.action === Share.sharedAction) {
@@ -722,33 +736,37 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               : `${activity.participants}`;
             const percentagePerPerson = isSplit ? (100 / activity.participants).toFixed(1) : null;
             
+            // Check if creator has a profile image (not placeholder)
+            const hasProfileImage = activity.creatorAvatar && !activity.creatorAvatar.includes('placeholder');
+            
             return (
-              <TouchableOpacity
+              <View
                 key={activity.id}
-                onPress={() => setSelectedActivity(activity)}
                 style={[
                   styles.eventBubbleContainer,
                   activity.isOwn && styles.eventBubbleContainerOwn
                 ]}
               >
+                {/* Left side - Other person's messages */}
                 {!activity.isOwn && (
-                  <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
-                )}
-                {activity.isOwn && (
-                  <View style={[
-                    styles.attendeeCircle,
-                    isSplit && styles.attendeeCircleSplit
-                  ]}>
-                    <Text style={[
-                      styles.attendeeCircleText,
-                      isSplit && styles.attendeeCircleTextSplit
-                    ]}>{countText}</Text>
+                  <View style={styles.avatarContainer}>
+                    {hasProfileImage ? (
+                      <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
+                    ) : (
+                      <View style={styles.avatarInitial}>
+                        <Text style={styles.avatarInitialText}>{activity.creatorInitial}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
-                <View style={[
-                  styles.eventBubble,
-                  activity.isOwn && (isEvent ? styles.eventBubbleOwn : styles.splitBubbleOwn)
-                ]}>
+
+                <TouchableOpacity
+                  onPress={() => setSelectedActivity(activity)}
+                  style={[
+                    styles.eventBubble,
+                    activity.isOwn && (isEvent ? styles.eventBubbleOwn : styles.splitBubbleOwn)
+                  ]}
+                >
                   <View style={styles.eventHeader}>
                     <Text style={[styles.eventCreator, activity.isOwn && styles.eventCreatorOwn]}>
                       {activity.creator}
@@ -779,22 +797,21 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                       <Text style={styles.eventDeadlineText}>{activity.deadline}</Text>
                     </View>
                   </View>
-                </View>
-                {!activity.isOwn && (
-                  <View style={[
-                    styles.attendeeCircle,
-                    isSplit && styles.attendeeCircleSplit
-                  ]}>
-                    <Text style={[
-                      styles.attendeeCircleText,
-                      isSplit && styles.attendeeCircleTextSplit
-                    ]}>{countText}</Text>
+                </TouchableOpacity>
+
+                {/* Right side - Your messages */}
+                {activity.isOwn && (
+                  <View style={styles.avatarContainer}>
+                    {hasProfileImage ? (
+                      <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
+                    ) : (
+                      <View style={styles.avatarInitial}>
+                        <Text style={styles.avatarInitialText}>{activity.creatorInitial}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
-                {activity.isOwn && (
-                  <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
-                )}
-              </TouchableOpacity>
+              </View>
             );
           })}
         </View>
@@ -1305,42 +1322,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 15,
   },
-  eventBubbleContainer: {
+ eventBubbleContainer: {
     flexDirection: 'row',
     marginBottom: 15,
     alignItems: 'flex-end',
   },
   eventBubbleContainerOwn: {
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end', // Push to right side
+  },
+  avatarContainer: {
+    marginHorizontal: 8,
   },
   eventAvatar: {
     width: 35,
     height: 35,
     borderRadius: 17.5,
-    marginHorizontal: 8,
   },
-  attendeeCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: '#1a1a1a',
-    borderWidth: 2,
-    borderColor: '#C3F73A',
-    justifyContent: 'center',
+  avatarInitial: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    backgroundColor: '#C3F73A',
     alignItems: 'center',
-    marginHorizontal: 5,
+    justifyContent: 'center',
   },
-  attendeeCircleSplit: {
-    borderColor: '#4FC3F7',
-    backgroundColor: '#1a2a3a',
-  },
-  attendeeCircleText: {
-    color: '#C3F73A',
-    fontSize: 11,
+  avatarInitialText: {
+    color: '#000',
+    fontSize: 16,
     fontWeight: 'bold',
-  },
-  attendeeCircleTextSplit: {
-    color: '#4FC3F7',
   },
   eventBubble: {
     backgroundColor: '#222',
