@@ -27,6 +27,13 @@ interface ActionReaction {
   emoji: string;
   users: string[]; // User IDs who reacted
   count: number;
+  reactions?: ActionReaction[];
+}
+
+interface ActionReaction {
+  emoji: string;
+  users: string[]; // User IDs who reacted
+  count: number;
 }
 
 type ThemeType = {
