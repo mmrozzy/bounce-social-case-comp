@@ -8,6 +8,7 @@ import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
 import { Share } from 'react-native';
+import SendNotification from './Notification';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -973,48 +974,77 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
 
       {/* Notification Modal */}
       {showNotificationModal && (
+        <SendNotification
+          visible={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+          activities={activities}
+          totalMembers={group.members}
+          groupName={group.name}
+        />
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
         <Modal
           visible={true}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setShowNotificationModal(false)}
+          onRequestClose={() => {
+            setShowMembersModal(false);
+            setSearchQuery('');
+          }}
         >
-          <View style={styles.notificationModalOverlay}>
-            <View style={styles.notificationModalContent}>
-              <View style={styles.notificationModalHeader}>
-                <Text style={styles.notificationModalTitle}>Send Notification</Text>
-                <TouchableOpacity onPress={() => setShowNotificationModal(false)}>
+          <View style={styles.membersModalOverlay}>
+            <View style={styles.membersModalContent}>
+              <View style={styles.membersModalHeader}>
+                <Text style={styles.membersModalTitle}>Group Members</Text>
+                <TouchableOpacity onPress={() => {
+                  setShowMembersModal(false);
+                  setSearchQuery('');
+                }}>
                   <Ionicons name="close" size={28} color="#fff" />
                 </TouchableOpacity>
               </View>
               
-              <Text style={styles.notificationModalSubtitle}>Select an event to notify members about:</Text>
+              {/* Search Bar */}
+              <View style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search members..."
+                  placeholderTextColor="#666"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
               
+              {/* Members List */}
               <FlatList
-                data={activities.filter(a => a.type === 'event') as Event[]}
+                data={filteredMembers}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.notificationEventItem}
-                    onPress={() => {
-                      // TODO: Backend integration - send notification to all group members
-                      setShowNotificationModal(false);
-                      // For now, just close the modal
-                    }}
-                  >
-                    <View style={styles.notificationEventInfo}>
-                      <Text style={styles.notificationEventName}>{item.eventName}</Text>
-                      <Text style={styles.notificationEventDetails}>
-                        ${item.amount} • {item.deadline}
-                      </Text>
+                  <View style={styles.memberItem}>
+                    <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>{item.name}</Text>
+                      <View style={[
+                        styles.memberRoleBadge,
+                        item.role === 'host' && styles.memberRoleBadgeHost
+                      ]}>
+                        <Text style={[
+                          styles.memberRoleText,
+                          item.role === 'host' && styles.memberRoleTextHost
+                        ]}>
+                          {item.role === 'host' ? 'Host' : 'Member'}
+                        </Text>
+                      </View>
                     </View>
-                    <Ionicons name="send" size={24} color="#C3F73A" />
-                  </TouchableOpacity>
+                  </View>
                 )}
                 ListEmptyComponent={
-                  <Text style={styles.notificationEmptyText}>No events to notify about</Text>
+                  <Text style={styles.membersEmptyText}>No members found</Text>
                 }
-                style={styles.notificationEventList}
+                style={styles.membersList}
               />
             </View>
           </View>
