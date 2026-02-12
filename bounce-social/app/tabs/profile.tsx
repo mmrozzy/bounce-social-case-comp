@@ -1,4 +1,4 @@
-import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, RefreshControl } from 'react-native';
+import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, RefreshControl, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
@@ -9,6 +9,8 @@ import { PersonaBadge } from '@/components/PersonaBadge';
 import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
 import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
+import UserWrappedAppView from '@/components/UserPersonaCard';
+import UserShareableWrapped from '@/components/UserShareablePersona';
 
 interface RecentAction {
   id: string;
@@ -19,6 +21,17 @@ interface RecentAction {
   activityId: string;
   timestamp: string;
 }
+
+type ThemeType = {
+  id: string;
+  name: string;
+  colors: string[];
+  bg: string;
+  cardBg: string;
+  textPrimary: string;
+  textSecondary: string;
+  bgPattern: string;
+};
 
 const getActionText = (action: RecentAction) => {
   switch (action.type) {
@@ -58,6 +71,9 @@ export default function ProfileScreen() {
   const [userTransactions, setUserTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showUserWrapped, setShowUserWrapped] = useState(false);
+  const [showUserShareable, setShowUserShareable] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<ThemeType | null>(null);
 
   // Convert events and splits to recent actions
   const recentActions: RecentAction[] = (() => {
@@ -346,7 +362,7 @@ export default function ProfileScreen() {
         {/* Persona Badge */}
         <TouchableOpacity 
           style={styles.personaSection}
-          onPress={() => setShowPersonaDetails(!showPersonaDetails)}
+          onPress={() => setShowUserWrapped(true)}  // Changed!
           activeOpacity={0.8}
         >
           <View style={styles.personaHeader}>
@@ -360,61 +376,11 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <Ionicons 
-              name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
+              name="chevron-forward" 
               size={24} 
               color="#C3F73A" 
             />
           </View>
-
-          {showPersonaDetails && (
-            <View style={styles.personaDetails}>
-              {/* Traits */}
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>✨ Your Traits</Text>
-                {userProfile.traits.map((trait, index) => (
-                  <Text key={index} style={styles.traitText}>• {trait}</Text>
-                ))}
-              </View>
-
-              {/* Stats */}
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>📊 Your Stats</Text>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Events Attended</Text>
-                  <Text style={styles.statValue}>{userProfile.stats.eventsAttended}</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Total Spent</Text>
-                  <Text style={styles.statValue}>${userProfile.stats.totalSpent.toFixed(2)}</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Avg per Event</Text>
-                  <Text style={styles.statValue}>${userProfile.stats.avgEventCost.toFixed(2)}</Text>
-                </View>
-              </View>
-
-              {/* Behavioral Insights */}
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>🔍 Behavioral Insights</Text>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Avg Group Size</Text>
-                  <Text style={styles.statValue}>{userProfile.stats.features.avgGroupSize.toFixed(1)} people</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Activity Level</Text>
-                  <Text style={styles.statValue}>{userProfile.stats.features.eventsPerMonth.toFixed(1)} events/mo</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Generosity</Text>
-                  <Text style={styles.statValue}>{(userProfile.stats.features.generosityScore * 100).toFixed(0)}%</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Most Active</Text>
-                  <Text style={styles.statValue}>{userProfile.stats.features.mostActiveHour}:00</Text>
-                </View>
-              </View>
-            </View>
-          )}
         </TouchableOpacity>
 
         {/* Recent Actions Section */}
@@ -453,6 +419,41 @@ export default function ProfileScreen() {
           )}
         </View>
       </View>
+      {/* User Wrapped Modal */}
+      {showUserWrapped && userProfile && (
+        <Modal
+          visible={true}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <UserWrappedAppView
+            userProfile={userProfile}
+            userName="Guillaume"  // Replace with actual user name
+            onClose={() => setShowUserWrapped(false)}
+            onShare={(theme) => {
+              setShowUserWrapped(false);
+              setSelectedTheme(theme);
+              setShowUserShareable(true);
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* User Shareable Modal */}
+      {showUserShareable && selectedTheme && userProfile && (
+        <Modal
+          visible={true}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <UserShareableWrapped
+            userProfile={userProfile}
+            userName="Guillaume"  // Replace with actual user name
+            selectedTheme={selectedTheme}
+            onBack={() => setShowUserShareable(false)}
+          />
+        </Modal>
+      )}
     </ScrollView>
   );
 }

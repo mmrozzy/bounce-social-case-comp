@@ -9,6 +9,8 @@ import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent,
 import { useImageCache } from '@/lib/ImageCacheContext';
 import { Share } from 'react-native';
 import SendNotification from './Notification';
+import PersonaWrapper from './GroupPersona';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -128,7 +130,9 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [profileImage, setProfileImage] = useState<string | null>(group.image);
   const [members, setMembers] = useState<Member[]>([]);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
-  
+  const [showPersonaModal, setShowPersonaModal] = useState(false);
+
+
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
 
   // State for group data
@@ -607,78 +611,27 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         {/* Group Persona Section */}
         {groupPersona && groupPersona.groupStats.totalEvents > 0 ? (
           <TouchableOpacity 
-            style={styles.groupPersonaSection}
-            onPress={() => setShowPersonaDetails(!showPersonaDetails)}
-            activeOpacity={0.8}
+            style={styles.groupPersonaCard}
+            onPress={() => setShowPersonaModal(true)}
           >
-            <View style={styles.personaHeader}>
-              <Text style={styles.personaBadgeEmoji}>{groupPersona.dominantPersona.emoji}</Text>
-              <View style={styles.personaInfo}>
-                <Text style={styles.personaType}>
-                  {groupPersona.dominantPersona.type.replace(/([A-Z])/g, ' $1').trim()}
+            <LinearGradient
+              colors={['#C3F73A15', '#FF006E15']}
+              style={styles.personaGradient}
+            />
+            <View style={styles.personaHeader2}>
+              <Text style={styles.personaEmoji}>
+                {groupPersona.dominantPersona.emoji}
+              </Text>
+              <View style={styles.personaInfo2}>
+                <Text style={styles.personaType2}>
+                  {groupPersona.dominantPersona.type
+                    .replace(/([A-Z])/g, ' $1')
+                    .trim()}
                 </Text>
-                <Text style={styles.personaDescription}>
-                  {groupPersona.dominantPersona.description}
-                </Text>
+                <Text style={styles.personaHint}>Tap to explore</Text>
               </View>
-              <Ionicons 
-                name={showPersonaDetails ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color="#C3F73A" 
-              />
+              <Ionicons name="chevron-forward" size={24} color="#C3F73A" />
             </View>
-
-            {showPersonaDetails && (
-              <View style={styles.personaDetails}>
-                {/* Group Traits */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>✨ Group Vibe</Text>
-                  {groupPersona.groupTraits.map((trait: string, index: number) => (
-                    <Text key={index} style={styles.traitText}>• {trait}</Text>
-                  ))}
-                </View>
-
-                {/* Persona Distribution */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>👥 Member Personas</Text>
-                  {groupPersona.personaDistribution.map((dist: any, index: number) => (
-                    <View key={index} style={styles.statRow}>
-                      <Text style={styles.statLabel}>
-                        {dist.emoji} {dist.personaKey.replace(/([A-Z])/g, ' $1').trim()}
-                      </Text>
-                      <Text style={styles.statValue}>
-                        {dist.count} ({dist.percentage}%)
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Group Stats */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>📊 Group Stats</Text>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Total Events</Text>
-                    <Text style={styles.statValue}>{groupPersona.groupStats.totalEvents}</Text>
-                  </View>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Total Spent</Text>
-                    <Text style={styles.statValue}>${groupPersona.groupStats.totalSpent.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Avg Event Cost</Text>
-                    <Text style={styles.statValue}>${groupPersona.groupStats.avgEventCost.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Group Generosity</Text>
-                    <Text style={styles.statValue}>{(groupPersona.groupStats.groupGenerosity * 100).toFixed(0)}%</Text>
-                  </View>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Most Active Time</Text>
-                    <Text style={styles.statValue}>{groupPersona.groupStats.mostActiveTime}:00</Text>
-                  </View>
-                </View>
-              </View>
-            )}
           </TouchableOpacity>
         ) : (
           <TouchableOpacity 
@@ -1118,6 +1071,21 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
           </View>
         </Modal>
       )}
+
+      {/* Shareable Group Persona Modal */}
+      {showPersonaModal && groupPersona && (
+      <Modal
+        visible={true}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <PersonaWrapper
+          groupPersona={groupPersona}
+          groupName={group.name}
+          onClose={() => setShowPersonaModal(false)}
+        />
+      </Modal>
+    )}
     </View>
   );
 }
@@ -1797,6 +1765,80 @@ const styles = StyleSheet.create({
     color: '#C3F73A',
     fontSize: 16,
   },
+  personaViewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1a3a1a',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  personaViewText: {
+    color: '#C3F73A',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  quickStatsPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  quickStat: {
+    alignItems: 'center',
+  },
+  quickStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    marginBottom: 4,
+  },
+  quickStatLabel: {
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '500',
+  },
+  groupPersonaCard: {
+    marginHorizontal: 20,
+    marginVertical: 15,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#C3F73A',
+    backgroundColor: '#0a0a0a',
+  },
+  personaGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  personaHeader2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    gap: 16,
+  },
+  personaEmoji: {
+    fontSize: 56,
+  },
+  personaInfo2: {
+    flex: 1,
+  },
+  personaType2: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    marginBottom: 4,
+  },
+  personaHint: {
+    fontSize: 13,
+    color: '#999',
+},
   shareButton: {
   padding: 10,
   },
