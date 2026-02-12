@@ -7,6 +7,7 @@ import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
+import { Share } from 'react-native';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
@@ -457,6 +458,24 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     );
   };
 
+  const handleShareGroup = async () => {
+    try {
+      const result = await Share.share({
+        message: `Join our group "${group.name}" on [YourAppName]! Use this link: https://yourapp.com/group/${group.id}`,
+        url: `https://yourapp.com/group/${group.id}`,
+        title: `Join "${group.name}"!`
+      });
+      if (result.action === Share.sharedAction) {
+        console.log('Group shared successfully');
+      } else if (result.action === Share.dismissedAction) {
+        console.log('Share dismissed');
+      }
+    } catch (error) {
+      console.error('Error sharing group:', error);
+    }
+  };
+
+
   if (showCreateEvent) {
     return (
       <CreateEvent 
@@ -504,6 +523,12 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 onPress={() => setShowNotificationModal(true)}
               >
                 <Ionicons name="notifications" size={24} color="#C3F73A" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.shareButton} 
+                onPress={handleShareGroup}
+              >
+                <Ionicons name="share-social-outline" size={24} color="#C3F73A" />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.deleteButton}
@@ -1737,5 +1762,8 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#C3F73A',
     fontSize: 16,
+  },
+  shareButton: {
+  padding: 10,
   },
 });
