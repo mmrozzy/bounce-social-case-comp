@@ -700,10 +700,13 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between', 
     marginBottom: 16,
   },
   statItem: {
-    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80, 
   },
   statBig: {
     fontSize: 32,

@@ -1,7 +1,7 @@
 import { Modal } from 'react-native';
 import { useState } from 'react';
-import ViralBentoPersona from './GroupPersonaAppView';
-import ShareableStoryView from './ShareablePersona';
+import GroupPersonaAppView from './GroupPersonaAppView';
+import ShareablePersona from './ShareablePersona';
 
 interface PersonaWrapperProps {
   groupPersona: any;
@@ -25,7 +25,7 @@ export default function PersonaWrapper({
 
   return (
     <>
-      <ViralBentoPersona
+      <GroupPersonaAppView
         groupPersona={groupPersona}
         groupName={groupName}
         onClose={onClose}
@@ -38,7 +38,7 @@ export default function PersonaWrapper({
           animationType="slide"
           presentationStyle="fullScreen"
         >
-          <ShareableStoryView
+          <ShareablePersona
             groupPersona={groupPersona}
             groupName={groupName}
             theme={selectedTheme}

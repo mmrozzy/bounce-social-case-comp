@@ -579,7 +579,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         </View>
 
         {/* Group Persona Section */}
-        {groupPersona && groupPersona.groupStats.totalEvents > 0 && (
+        {groupPersona && groupPersona.groupStats.totalEvents > 0 ? (
           <TouchableOpacity 
             style={styles.groupPersonaCard}
             onPress={() => setShowPersonaModal(true)}
@@ -594,14 +594,16 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               </Text>
               <View style={styles.personaInfo2}>
                 <Text style={styles.personaType2}>
-                  {groupPersona.dominantPersona.type.replace(/([A-Z])/g, ' $1').trim()}
+                  {groupPersona.dominantPersona.type
+                    .replace(/([A-Z])/g, ' $1')
+                    .trim()}
                 </Text>
                 <Text style={styles.personaHint}>Tap to explore</Text>
               </View>
               <Ionicons name="chevron-forward" size={24} color="#C3F73A" />
             </View>
           </TouchableOpacity>
-        )} : (
+        ) : (
           <TouchableOpacity 
             style={styles.groupPersonaSectionEmpty}
             onPress={() => setShowPersonaDetails(!showPersonaDetails)}
@@ -659,7 +661,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
               </View>
             )}
           </TouchableOpacity>
-        )
+        )}
 
         {/* Create Event Button Section */}
         <View style={styles.actionSection}>
