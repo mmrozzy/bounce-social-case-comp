@@ -292,11 +292,10 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
   }, [initialActivityId]);
 
-  const handleCreateEvent = async (eventName: string, amount: string, deadline: string) => {
+  const handleCreateEvent = async (eventName: string, amount: string, deadline: Date) => {
     try {
-      // For now, use current time + 1 day as event date (TODO: implement proper date picker)
-      const eventDate = new Date();
-      eventDate.setDate(eventDate.getDate() + 1);
+      // Use the Date object directly - it's already a Date
+      const eventDate = deadline;
       
       // Save to database and get the created event
       const newEvent = await createEvent(
@@ -334,12 +333,15 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       setShowCreateEvent(false);
     } catch (error) {
       console.error('Error creating event:', error);
-      // TODO: Show error message to user
+      Alert.alert('Error', 'Failed to create event. Please try again.');
     }
   };
 
-  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: string) => {
+  const handleCreateSplit = async (eventName: string, totalAmount: string, deadline: Date) => {
     try {
+      // Use the Date object directly - it's already a Date
+      const splitDate = deadline;
+      
       // Save split as a transaction to database
       await createTransaction({
         eventId: null,
@@ -349,6 +351,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
         totalAmount: parseFloat(totalAmount),
         note: eventName, // Save the split name in the note field
         participants: [CURRENT_USER_ID],
+        createdAt: splitDate.toISOString(), // Store the deadline as createdAt
         splits: [{
           userId: CURRENT_USER_ID,
           paid: parseFloat(totalAmount),
@@ -374,7 +377,7 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
       setShowCreateSplit(false);
     } catch (error) {
       console.error('Error creating split:', error);
-      // TODO: Show error message to user
+      Alert.alert('Error', 'Failed to create split. Please try again.');
     }
   };
 
