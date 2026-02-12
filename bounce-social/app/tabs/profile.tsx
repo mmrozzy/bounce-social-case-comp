@@ -1,13 +1,13 @@
-import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, RefreshControl, Modal } from 'react-native';
+import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, RefreshControl, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { setNavigationTarget } from '@/lib/navigationState';
 import { PersonaBadge } from '@/components/PersonaBadge';
 import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
-import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages } from '@/lib/database';
+import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages, getActivityReactions, toggleActivityReaction } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
 import UserWrappedAppView from '@/components/UserPersonaCard';
 import UserShareableWrapped from '@/components/UserShareablePersona';
@@ -20,6 +20,13 @@ interface RecentAction {
   groupId: string;
   activityId: string;
   timestamp: string;
+  reactions?: ActionReaction[];
+}
+
+interface ActionReaction {
+  emoji: string;
+  users: string[]; // User IDs who reacted
+  count: number;
 }
 
 type ThemeType = {
@@ -32,6 +39,8 @@ type ThemeType = {
   textSecondary: string;
   bgPattern: string;
 };
+
+const COMMON_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉', '👏', '💯', '✨'];
 
 const getActionText = (action: RecentAction) => {
   switch (action.type) {
@@ -74,6 +83,10 @@ export default function ProfileScreen() {
   const [showUserWrapped, setShowUserWrapped] = useState(false);
   const [showUserShareable, setShowUserShareable] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<ThemeType | null>(null);
+  const [actionReactions, setActionReactions] = useState<Record<string, ActionReaction[]>>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [customEmoji, setCustomEmoji] = useState('');
+  const emojiInputRef = useRef<TextInput>(null);
 
   // Convert events and splits to recent actions
   const recentActions: RecentAction[] = (() => {
@@ -95,6 +108,7 @@ export default function ProfileScreen() {
         activityId: event.id,
         timestamp: timeAgo,
         dateObj: eventDate,
+        reactions: actionReactions[event.id] || [],
       });
     });
     
@@ -116,6 +130,7 @@ export default function ProfileScreen() {
           activityId: split.id,
           timestamp: timeAgo,
           dateObj: splitDate,
+          reactions: actionReactions[split.id] || [],
         });
       });
     
@@ -123,7 +138,7 @@ export default function ProfileScreen() {
     return actions
       .sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime())
       .slice(0, 10)
-      .map(({ dateObj, ...action }) => action); // Remove dateObj from final result
+      .map(({ dateObj, ...action }) => action);
   })();
 
   // Helper function to calculate time ago
@@ -139,10 +154,104 @@ export default function ProfileScreen() {
     return `${Math.floor(diffDays / 30)}mo ago`;
   }
 
+  // Load reactions from database
+  const loadReactions = async () => {
+    try {
+      const reactions = await getActivityReactions('current-user');
+      setActionReactions(reactions);
+    } catch (error) {
+      console.error('Error loading reactions:', error);
+    }
+  };
+
+  // Handle emoji reaction
+  const handleReaction = async (actionId: string, emoji: string, activityType: 'event' | 'split') => {
+    if (!emoji.trim()) return;
+    
+    const currentUserId = 'current-user'; // TODO: Replace with actual user ID
+    
+    // Optimistically update UI
+    setActionReactions(prev => {
+      const existingReactions = prev[actionId] || [];
+      const emojiReaction = existingReactions.find(r => r.emoji === emoji);
+      
+      if (emojiReaction) {
+        // User already reacted with this emoji - remove reaction
+        if (emojiReaction.users.includes(currentUserId)) {
+          const updatedUsers = emojiReaction.users.filter(id => id !== currentUserId);
+          
+          if (updatedUsers.length === 0) {
+            // Remove emoji completely if no users left
+            return {
+              ...prev,
+              [actionId]: existingReactions.filter(r => r.emoji !== emoji),
+            };
+          }
+          
+          return {
+            ...prev,
+            [actionId]: existingReactions.map(r =>
+              r.emoji === emoji
+                ? { ...r, users: updatedUsers, count: updatedUsers.length }
+                : r
+            ),
+          };
+        } else {
+          // Add user to existing emoji
+          return {
+            ...prev,
+            [actionId]: existingReactions.map(r =>
+              r.emoji === emoji
+                ? { ...r, users: [...r.users, currentUserId], count: r.count + 1 }
+                : r
+            ),
+          };
+        }
+      } else {
+        // New emoji reaction
+        return {
+          ...prev,
+          [actionId]: [
+            ...existingReactions,
+            { emoji, users: [currentUserId], count: 1 },
+          ],
+        };
+      }
+    });
+    
+    setShowEmojiPicker(null);
+    setCustomEmoji('');
+    
+    // Persist to database
+    try {
+      await toggleActivityReaction(currentUserId, actionId, activityType, emoji);
+    } catch (error) {
+      console.error('Error toggling reaction:', error);
+      // Reload reactions to sync with database state
+      await loadReactions();
+    }
+  };
+
+  // Check if current user reacted with this emoji
+  const hasUserReacted = (actionId: string, emoji: string): boolean => {
+    const reactions = actionReactions[actionId] || [];
+    const emojiReaction = reactions.find(r => r.emoji === emoji);
+    return emojiReaction?.users.includes('current-user') || false;
+  };
+
+  // Handle custom emoji input - reacts immediately as user types
+  const handleCustomEmojiChange = (text: string, actionId: string, activityType: 'event' | 'split') => {
+    setCustomEmoji(text);
+    
+    // If user typed an emoji (non-empty after trim), react immediately
+    if (text.trim()) {
+      handleReaction(actionId, text.trim(), activityType);
+    }
+  };
+
   // Fetch user data from Supabase
   const loadUserData = async () => {
     try {
-      // TODO: Replace 'current-user' with actual authenticated user ID
       const user = await getUserById('current-user');
       setCurrentUser(user);
       
@@ -159,6 +268,8 @@ export default function ProfileScreen() {
         t => t.from === 'current-user' || t.participants?.includes('current-user')
       );
       setUserTransactions(userTransactionsFiltered);
+      
+      await loadReactions();
     } catch (error) {
       console.error('Error loading user data:', error);
     }
@@ -173,21 +284,18 @@ export default function ProfileScreen() {
     initLoad();
   }, []);
 
-  // Reload data when profile tab comes into focus
   useFocusEffect(
     useCallback(() => {
       loadUserData();
     }, [])
   );
 
-  // Handle pull to refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await loadUserData();
     setRefreshing(false);
   };
 
-  // Calculate user persona profile
   const userProfile = currentUser ? analyzeUserProfile(
     currentUser.id,
     userTransactions,
@@ -195,16 +303,13 @@ export default function ProfileScreen() {
     userGroups
   ) : null;
 
-  // Load cached images immediately, then check for updates in background
   useEffect(() => {
-    // Load from cache instantly
     const cachedImages = getUserImages('current-user');
     if (cachedImages) {
       if (cachedImages.bannerImage) setBannerImage(cachedImages.bannerImage);
       if (cachedImages.profileImage) setProfileImage(cachedImages.profileImage);
     }
     
-    // Check database for any updates in background (non-blocking)
     loadImages();
     requestPermissions();
   }, []);
@@ -217,10 +322,8 @@ export default function ProfileScreen() {
   };
 
   const loadImages = () => {
-    // Run in background without blocking UI
     getUserById('current-user')
       .then(user => {
-        // Only update if images changed
         if (user.bannerImage && user.bannerImage !== bannerImage) {
           setBannerImage(user.bannerImage);
           updateCacheUserImages('current-user', undefined, user.bannerImage);
@@ -247,13 +350,11 @@ export default function ProfileScreen() {
       const uri = result.assets[0].uri;
       setBannerImage(uri);
       try {
-        // Upload to Supabase Storage
         const publicUrl = await uploadImage(
           { uri, type: 'image/jpeg', name: `banner-${Date.now()}.jpg` },
           'banners'
         );
         
-        // Update database with new URL
         await updateUserImages('current-user', undefined, publicUrl);
         updateCacheUserImages('current-user', undefined, publicUrl);
         setBannerImage(publicUrl);
@@ -276,13 +377,11 @@ export default function ProfileScreen() {
       const uri = result.assets[0].uri;
       setProfileImage(uri);
       try {
-        // Upload to Supabase Storage
         const publicUrl = await uploadImage(
           { uri, type: 'image/jpeg', name: `profile-${Date.now()}.jpg` },
           'profiles'
         );
         
-        // Update database with new URL
         await updateUserImages('current-user', publicUrl, undefined);
         updateCacheUserImages('current-user', publicUrl, undefined);
         setProfileImage(publicUrl);
@@ -294,13 +393,10 @@ export default function ProfileScreen() {
   };
 
   const handleActionPress = (action: RecentAction) => {
-    // Set navigation target for groups tab to pick up
     setNavigationTarget(action.groupId, action.activityId);
-    // Navigate to groups tab
     router.push('/tabs/groups');
   };
 
-  // Show loading state
   if (loading || !currentUser || !userProfile) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -336,7 +432,6 @@ export default function ProfileScreen() {
       
       {/* Profile Picture */}
       <View style={styles.profilePicContainer}>
-        {/* Triangle background */}
         <Image 
           source={require('@/assets/images/profile/triangle.png')}
           style={styles.profileTriangle}
@@ -356,13 +451,12 @@ export default function ProfileScreen() {
       
       {/* Profile content */}
       <View style={styles.content}>
-        {/* Greeting */}
         <Text style={styles.greeting}>Hello, Guillaume!</Text>
 
         {/* Persona Badge */}
         <TouchableOpacity 
           style={styles.personaSection}
-          onPress={() => setShowUserWrapped(true)}  // Changed!
+          onPress={() => setShowUserWrapped(true)}
           activeOpacity={0.8}
         >
           <View style={styles.personaHeader}>
@@ -397,28 +491,110 @@ export default function ProfileScreen() {
             recentActions.map((action) => {
               const icon = getActionIcon(action.type);
               return (
-                <TouchableOpacity
-                  key={action.id}
-                  style={styles.actionItem}
-                  onPress={() => handleActionPress(action)}
-                >
-                  <View style={styles.actionIconContainer}>
-                    <Ionicons name={icon.name} size={24} color={icon.color} />
+                <View key={action.id} style={styles.actionItemContainer}>
+                  <TouchableOpacity
+                    style={styles.actionItem}
+                    onPress={() => handleActionPress(action)}
+                  >
+                    <View style={styles.actionIconContainer}>
+                      <Ionicons name={icon.name} size={24} color={icon.color} />
+                    </View>
+                    
+                    <View style={styles.actionDetails}>
+                      <Text style={styles.actionText}>{getActionText(action)}</Text>
+                      <Text style={styles.actionGroup}>in {action.groupName}</Text>
+                      <Text style={styles.actionTimestamp}>{action.timestamp}</Text>
+                    </View>
+                    
+                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                  </TouchableOpacity>
+
+                  {/* Reactions Section */}
+                  <View style={styles.reactionsContainer}>
+                    {/* Existing Reactions */}
+                    {action.reactions && action.reactions.length > 0 && (
+                      <View style={styles.reactionsList}>
+                        {action.reactions.map((reaction) => (
+                          <TouchableOpacity
+                            key={reaction.emoji}
+                            style={[
+                              styles.reactionBubble,
+                              hasUserReacted(action.id, reaction.emoji) && styles.reactionBubbleActive,
+                            ]}
+                            onPress={() => {
+                              const activityType = action.type.includes('event') ? 'event' : 'split';
+                              handleReaction(action.id, reaction.emoji, activityType);
+                            }}
+                          >
+                            <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                            <Text style={styles.reactionCount}>{reaction.count}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Add Reaction Button */}
+                    <TouchableOpacity
+                      style={styles.addReactionButton}
+                      onPress={() => {
+                        const isOpen = showEmojiPicker === action.id;
+                        setShowEmojiPicker(isOpen ? null : action.id);
+                        if (!isOpen) {
+                          // Focus emoji input after picker opens
+                          setTimeout(() => emojiInputRef.current?.focus(), 100);
+                        }
+                      }}
+                    >
+                      <Ionicons name={showEmojiPicker === action.id ? "close" : "add-circle-outline"} size={20} color="#666" />
+                    </TouchableOpacity>
                   </View>
-                  
-                  <View style={styles.actionDetails}>
-                    <Text style={styles.actionText}>{getActionText(action)}</Text>
-                    <Text style={styles.actionGroup}>in {action.groupName}</Text>
-                    <Text style={styles.actionTimestamp}>{action.timestamp}</Text>
-                  </View>
-                  
-                  <Ionicons name="chevron-forward" size={20} color="#666" />
-                </TouchableOpacity>
+
+                  {/* Emoji Picker */}
+                  {showEmojiPicker === action.id && (
+                    <View style={styles.emojiPicker}>
+                      <Text style={styles.emojiPickerTitle}>Quick Reactions</Text>
+                      <View style={styles.commonEmojis}>
+                        {COMMON_EMOJIS.map((emoji) => (
+                          <TouchableOpacity
+                            key={emoji}
+                            style={styles.emojiOption}
+                            onPress={() => {
+                              const activityType = action.type.includes('event') ? 'event' : 'split';
+                              handleReaction(action.id, emoji, activityType);
+                            }}
+                          >
+                            <Text style={styles.emojiOptionText}>{emoji}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      
+                      {/* Custom Emoji Input */}
+                      <View style={styles.customEmojiContainer}>
+                        <Text style={styles.customEmojiLabel}>Or choose from keyboard</Text>
+                        <View style={styles.customEmojiInput}>
+                          <TextInput
+                            ref={emojiInputRef}
+                            style={styles.emojiTextInput}
+                            placeholder="Tap to open emoji keyboard 😊"
+                            placeholderTextColor="#666"
+                            value={customEmoji}
+                            onChangeText={(text) => {
+                              const activityType = action.type.includes('event') ? 'event' : 'split';
+                              handleCustomEmojiChange(text, action.id, activityType);
+                            }}
+                            maxLength={2}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
               );
             })
           )}
         </View>
       </View>
+
       {/* User Wrapped Modal */}
       {showUserWrapped && userProfile && (
         <Modal
@@ -428,7 +604,7 @@ export default function ProfileScreen() {
         >
           <UserWrappedAppView
             userProfile={userProfile}
-            userName="Guillaume"  // Replace with actual user name
+            userName="Guillaume"
             onClose={() => setShowUserWrapped(false)}
             onShare={(theme) => {
               setShowUserWrapped(false);
@@ -448,7 +624,7 @@ export default function ProfileScreen() {
         >
           <UserShareableWrapped
             userProfile={userProfile}
-            userName="Guillaume"  // Replace with actual user name
+            userName="Guillaume"
             selectedTheme={selectedTheme}
             onBack={() => setShowUserShareable(false)}
           />
@@ -473,7 +649,7 @@ const styles = StyleSheet.create({
   },
   profilePicContainer: {
     alignItems: 'center',
-    marginTop: -75, // Negative margin to overlap banner
+    marginTop: -75,
     position: 'relative',
   },
   profileTriangle: {
@@ -487,9 +663,9 @@ const styles = StyleSheet.create({
   profilePic: {
     width: 150,
     height: 150,
-    borderRadius: 75, // Make it circular
+    borderRadius: 75,
     borderWidth: 5,
-    borderColor: '#000', // Black border to separate from banner
+    borderColor: '#000',
     backgroundColor: '#fff',
     overflow: 'hidden',
     position: 'relative',
@@ -541,42 +717,6 @@ const styles = StyleSheet.create({
     color: '#999',
     lineHeight: 20,
   },
-  personaDetails: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  detailSection: {
-    marginBottom: 20,
-  },
-  detailSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 12,
-  },
-  traitText: {
-    fontSize: 14,
-    color: '#ccc',
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#999',
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#C3F73A',
-  },
   actionsSection: {
     marginTop: 10,
   },
@@ -586,13 +726,15 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 15,
   },
+  actionItemContainer: {
+    marginBottom: 12,
+  },
   actionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1a1a1a',
     padding: 15,
     borderRadius: 15,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#333',
   },
@@ -622,6 +764,116 @@ const styles = StyleSheet.create({
   actionTimestamp: {
     color: '#666',
     fontSize: 12,
+  },
+  reactionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingTop: 8,
+    gap: 8,
+  },
+  reactionsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+  },
+  reactionBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#222',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  reactionBubbleActive: {
+    backgroundColor: '#2a2a2a',
+    borderColor: '#C3F73A',
+  },
+  reactionEmoji: {
+    fontSize: 16,
+  },
+  reactionCount: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addReactionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#222',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  emojiPicker: {
+    flexDirection: 'column',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 12,
+    marginHorizontal: 15,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  emojiPickerTitle: {
+    color: '#999',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  commonEmojis: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  emojiOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#222',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiOptionText: {
+    fontSize: 24,
+  },
+  customEmojiContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    paddingTop: 12,
+  },
+  customEmojiLabel: {
+    color: '#999',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  customEmojiInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#222',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  emojiTextInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    paddingVertical: 4,
   },
   centerContent: {
     justifyContent: 'center',

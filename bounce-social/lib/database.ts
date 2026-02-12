@@ -411,3 +411,204 @@ export async function getGroupData(groupId: string) {
     return null
   }
 }
+
+// Activity Reactions Types
+export interface ActivityReaction {
+  id: string;
+  user_id: string;
+  activity_id: string;
+  activity_type: 'event' | 'split';
+  emoji: string;
+  created_at: string;
+}
+
+export interface GroupedReaction {
+  emoji: string;
+  users: string[];
+  count: number;
+}
+
+/**
+ * Get all reactions for display on profile
+ */
+export async function getActivityReactions(
+  userId: string
+): Promise<Record<string, GroupedReaction[]>> {
+  try {    
+    // Just fetch ALL reactions - we'll filter on the frontend
+    const { data: reactions, error } = await supabase
+      .from('activity_reactions')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching reactions:', error);
+      throw error;
+    }
+    
+    // Group reactions by activity and emoji
+    const grouped: Record<string, GroupedReaction[]> = {};
+    
+    reactions?.forEach((reaction: ActivityReaction) => {
+      if (!grouped[reaction.activity_id]) {
+        grouped[reaction.activity_id] = [];
+      }
+      
+      const existing = grouped[reaction.activity_id].find(
+        r => r.emoji === reaction.emoji
+      );
+      
+      if (existing) {
+        existing.users.push(reaction.user_id);
+        existing.count++;
+      } else {
+        grouped[reaction.activity_id].push({
+          emoji: reaction.emoji,
+          users: [reaction.user_id],
+          count: 1,
+        });
+      }
+    });
+    return grouped;
+  } catch (error) {
+    console.error('Error fetching activity reactions:', error);
+    return {};
+  }
+}
+
+/**
+ * Add or remove a reaction to an activity
+ * If user already reacted with this emoji, it removes it
+ * Otherwise, it adds the reaction
+ */
+export async function toggleActivityReaction(
+  userId: string,
+  activityId: string,
+  activityType: 'event' | 'split',
+  emoji: string
+): Promise<boolean> {
+  try {
+    // Check if reaction already exists
+    const { data: existing } = await supabase
+      .from('activity_reactions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('activity_id', activityId)
+      .eq('emoji', emoji)
+      .single();
+    
+    if (existing) {
+      // Remove reaction
+      const { error } = await supabase
+        .from('activity_reactions')
+        .delete()
+        .eq('id', existing.id);
+      
+      if (error) throw error;
+      return false; // Reaction removed
+    } else {
+      // Add reaction
+      const { error } = await supabase
+        .from('activity_reactions')
+        .insert({
+          user_id: userId,
+          activity_id: activityId,
+          activity_type: activityType,
+          emoji: emoji,
+          created_at: new Date().toISOString(),
+        });
+      
+      if (error) throw error;
+      return true; // Reaction added
+    }
+  } catch (error) {
+    console.error('Error toggling activity reaction:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get reaction counts for a specific activity
+ */
+export async function getActivityReactionCounts(
+  activityId: string
+): Promise<GroupedReaction[]> {
+  try {
+    const { data: reactions, error } = await supabase
+      .from('activity_reactions')
+      .select('*')
+      .eq('activity_id', activityId);
+    
+    if (error) throw error;
+    
+    // Group by emoji
+    const grouped: Record<string, GroupedReaction> = {};
+    
+    reactions?.forEach((reaction: ActivityReaction) => {
+      if (!grouped[reaction.emoji]) {
+        grouped[reaction.emoji] = {
+          emoji: reaction.emoji,
+          users: [],
+          count: 0,
+        };
+      }
+      
+      grouped[reaction.emoji].users.push(reaction.user_id);
+      grouped[reaction.emoji].count++;
+    });
+    
+    return Object.values(grouped);
+  } catch (error) {
+    console.error('Error fetching reaction counts:', error);
+    return [];
+  }
+}
+
+/**
+ * Get users who reacted with a specific emoji
+ */
+export async function getReactionUsers(
+  activityId: string,
+  emoji: string
+): Promise<any[]> {
+  try {
+    const { data: reactions, error } = await supabase
+      .from('activity_reactions')
+      .select(`
+        user_id,
+        users:user_id (
+          id,
+          name,
+          profile_image
+        )
+      `)
+      .eq('activity_id', activityId)
+      .eq('emoji', emoji);
+    
+    if (error) throw error;
+    
+    return reactions?.map((r: any) => r.users) || [];
+  } catch (error) {
+    console.error('Error fetching reaction users:', error);
+    return [];
+  }
+}
+
+/**
+ * Remove all reactions for an activity 
+ */
+export async function deleteActivityReactions(
+  activityId: string
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('activity_reactions')
+      .delete()
+      .eq('activity_id', activityId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting activity reactions:', error);
+    throw error;
+  }
+}
