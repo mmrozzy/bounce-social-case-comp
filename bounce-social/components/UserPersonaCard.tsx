@@ -6,6 +6,23 @@ import Svg, { Path, Circle } from 'react-native-svg';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
+// Helper function to get current week's date range
+function getWeekDateRange(): string {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  const formatDate = (date: Date) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}`;
+  };
+  
+  return `${formatDate(monday)} - ${formatDate(sunday)}`;
+}
+
 type ThemeType = {
   id: string;
   name: string;
@@ -89,39 +106,22 @@ const THEMES: ThemeType[] = [
 
 // Background animations (simplified)
 function BounceTriangles({ theme }: { theme: ThemeType }) {
-  const fadeAnim1 = useRef(new Animated.Value(0.15)).current;
-  const fadeAnim2 = useRef(new Animated.Value(0.2)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0.15)).current;
 
   useEffect(() => {
     Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(fadeAnim1, { toValue: 0.25, duration: 3000, useNativeDriver: true }),
-          Animated.timing(fadeAnim1, { toValue: 0.15, duration: 3000, useNativeDriver: true }),
-        ]),
-        Animated.sequence([
-          Animated.timing(fadeAnim2, { toValue: 0.15, duration: 3000, useNativeDriver: true }),
-          Animated.timing(fadeAnim2, { toValue: 0.25, duration: 3000, useNativeDriver: true }),
-        ]),
-        Animated.timing(rotateAnim, { toValue: 1, duration: 20000, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.timing(fadeAnim, { toValue: 0.25, duration: 3000, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0.15, duration: 3000, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
-  const rotation = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
   return (
     <View style={styles.bgContainer}>
-      <Animated.View style={[styles.shapeContainer, { opacity: fadeAnim1, transform: [{ rotate: rotation }] }]}>
+      <Animated.View style={[styles.shapeContainer, { opacity: fadeAnim }]}>
         <Svg width={SCREEN_WIDTH * 1.5} height={SCREEN_HEIGHT} viewBox="0 0 400 800">
           <Path d="M 200 100 L 300 250 L 100 250 Z" fill={theme.colors[0]} />
-          <Path d="M 200 300 L 300 450 L 100 450 Z" fill={theme.colors[0]} opacity={0.7} />
-        </Svg>
-      </Animated.View>
-      <Animated.View style={[styles.shapeContainer, { opacity: fadeAnim2, transform: [{ rotate: '-30deg' }] }]}>
-        <Svg width={SCREEN_WIDTH * 1.5} height={SCREEN_HEIGHT} viewBox="0 0 400 800">
-          <Path d="M 150 500 L 250 350 L 50 350 Z" fill={theme.colors[1]} opacity={0.5} />
         </Svg>
       </Animated.View>
     </View>
@@ -269,7 +269,10 @@ export default function UserWrappedAppView({
             <View style={styles.heroContent}>
               <View style={styles.heroTop}>
                 <View>
-                  <Text style={[styles.userLabel, { color: theme.textSecondary }]}>YOUR WRAPPED</Text>
+                  <Text style={[styles.weeklyLabel, { color: theme.colors[0] }]}>WEEKLY ROUND-UP</Text>
+                  <Text style={[styles.dateRange, { color: theme.textSecondary }]}>
+                    {getWeekDateRange()}
+                  </Text>
                   <Text style={[styles.userName, { color: theme.textPrimary }]}>{userName}</Text>
                 </View>
                 <Text style={styles.heroEmoji}>{userProfile.emoji}</Text>
@@ -311,7 +314,7 @@ export default function UserWrappedAppView({
 
               <TouchableOpacity activeOpacity={0.7} style={[styles.bentoCardSmall, { backgroundColor: theme.cardBg }]}>
                 <Text style={styles.cardIconLarge}>❤️</Text>
-                <Text style={[styles.cardValueHuge, { color: theme.colors[2] }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} >
+                <Text style={[styles.cardValueHuge, { color: theme.colors[2] }]} numberOfLines={1}>
                   {Math.round(userProfile.stats.features.generosityScore * 100)}%
                 </Text>
                 <Text style={[styles.cardLabelBold, { color: theme.textPrimary }]}>Generosity</Text>
@@ -434,7 +437,8 @@ const styles = StyleSheet.create({
   heroSection: { borderRadius: 28, overflow: 'hidden', marginBottom: 16 },
   heroContent: { padding: 24 },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  userLabel: { fontSize: 11, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
+  weeklyLabel: { fontSize: 12, fontWeight: 'bold', letterSpacing: 2, marginBottom: 4 },
+  dateRange: { fontSize: 11, fontWeight: '600', marginBottom: 8 },
   userName: { fontSize: 24, fontWeight: 'bold' },
   heroEmoji: { fontSize: 72 },
   heroBottom: { gap: 8 },

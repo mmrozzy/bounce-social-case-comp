@@ -26,6 +26,23 @@ interface PersonaProps {
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
+// Helper function to get current week's date range
+function getWeekDateRange(): string {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  const formatDate = (date: Date) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}`;
+  };
+  
+  return `${formatDate(monday)} - ${formatDate(sunday)}`;
+}
+
 const THEMES: ThemeType[] = [
   {
     id: 'bounce',
@@ -382,7 +399,10 @@ export default function GroupWrappedAppView({
             <View style={styles.heroContent}>
               <View style={styles.heroTop}>
                 <View>
-                  <Text style={[styles.groupLabel, { color: theme.textSecondary }]}>YOUR GROUP</Text>
+                  <Text style={[styles.weeklyLabel, { color: theme.colors[0] }]}>WEEKLY ROUND-UP</Text>
+                  <Text style={[styles.dateRange, { color: theme.textSecondary }]}>
+                    {getWeekDateRange()}
+                  </Text>
                   <Text style={[styles.groupName, { color: theme.textPrimary }]}>{groupName}</Text>
                 </View>
                 <Text style={styles.heroEmoji}>{groupPersona.dominantPersona.emoji}</Text>
@@ -434,7 +454,7 @@ export default function GroupWrappedAppView({
 
               <TouchableOpacity activeOpacity={0.7} style={[styles.bentoCardSmall, { backgroundColor: theme.cardBg }]}>
                 <Text style={styles.cardIconLarge}>❤️</Text>
-                <Text style={[styles.cardValueHuge, { color: theme.colors[2] }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+                <Text style={[styles.cardValueHuge, { color: theme.colors[2] }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                   {Math.round(groupPersona.groupStats.groupGenerosity * 100)}%
                 </Text>
                 <Text style={[styles.cardLabelBold, { color: theme.textPrimary }]}>Generosity</Text>
@@ -600,7 +620,8 @@ const styles = StyleSheet.create({
   heroSection: { borderRadius: 28, overflow: 'hidden', marginBottom: 16 },
   heroContent: { padding: 24 },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  groupLabel: { fontSize: 11, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
+  weeklyLabel: { fontSize: 12, fontWeight: 'bold', letterSpacing: 2, marginBottom: 4 },
+  dateRange: { fontSize: 11, fontWeight: '600', marginBottom: 8 },
   groupName: { fontSize: 24, fontWeight: 'bold' },
   heroEmoji: { fontSize: 72 },
   heroBottom: { gap: 8 },

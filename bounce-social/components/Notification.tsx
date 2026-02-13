@@ -64,21 +64,12 @@ const SendNotification = ({
         ]
       );
       
-      // Also show success
-      setTimeout(() => {
-        Alert.alert(
-          'Reminder Sent!',
-          `"${customMessage.trim()}" sent to all unpaid members!`,
-          [{ text: 'OK', onPress: handleClose }]
-        );
-      }, 500);
-      
     } else {
       // iOS: Send actual system notification
       try {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: `${selectedActivity.eventName}`,
+            title: `${groupName}: ${selectedActivity.eventName}`,
             body: customMessage.trim(),
             sound: true,
             data: {
@@ -119,7 +110,7 @@ const SendNotification = ({
   };
 
   const suggestionChips = [
-    'NEED THE MONEY HONEYYY 💸',
+    'BOUNCE ME⚡⚡⚡',
     'Pay up buttercup! 🌼',
     'Time to settle up! ⏰',
     'Show me the money! 💵',

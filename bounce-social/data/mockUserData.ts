@@ -3,7 +3,7 @@ import { User, Group, Event, Transaction } from '../src/types'
 // Current user data
 export const currentUser: User = {
   id: 'current-user',
-  name: 'Guillaume',
+  name: 'Ari',
   joinedGroups: ['group-1']
 }
 
