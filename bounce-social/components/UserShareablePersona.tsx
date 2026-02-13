@@ -62,6 +62,21 @@ export default function UserShareable({
       value: String(userProfile.stats.features.mostActiveHour).padStart(2, '0') + ':00',
     },
   ];
+  const getDateRange = () => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 7);
+
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+    };
+
+    return `${start.toLocaleDateString(undefined, options)} – ${end.toLocaleDateString(
+      undefined,
+      options
+    )}`;
+  };
 
   const handleShare = async () => {
     try {
@@ -136,6 +151,12 @@ export default function UserShareable({
         {/* Content */}
         <View style={styles.content}>
           {/* Header */}
+          <View style={styles.header}>
+            <Text numberOfLines={1} style={[styles.weeklyLabel, { color: theme.textPrimary }]}>
+              Weekly Round-Up
+            </Text>
+            <Text style={[styles.date, { color: theme.textSecondary }]}>{getDateRange()}</Text>
+          </View>          
           <Text style={[styles.userName, { color: theme.textPrimary }]}>{userName}</Text>
 
           {/* Persona */}
@@ -198,6 +219,9 @@ type Styles = {
   shareText: TextStyle;
   circleTop: ViewStyle;
   circleBottom: ViewStyle;
+  header: ViewStyle;
+  date: TextStyle;
+  weeklyLabel: TextStyle;
 };
 
 const styles = StyleSheet.create<Styles>({
@@ -219,4 +243,20 @@ const styles = StyleSheet.create<Styles>({
   shareText: { marginLeft: 8, fontWeight: 'bold', color: '#000' },
   circleTop: { position: 'absolute', width: 180, height: 180, borderRadius: 90, top: -40, right: -40 },
   circleBottom: { position: 'absolute', width: 200, height: 200, borderRadius: 100, bottom: -60, left: -60 },
+   header: {
+    alignItems: 'center',
+  },
+    date: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  weeklyLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
 });

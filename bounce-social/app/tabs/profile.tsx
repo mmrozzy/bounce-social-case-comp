@@ -404,6 +404,23 @@ export default function ProfileScreen() {
     router.push('/tabs/groups');
   };
 
+  const getWeekDateRange = (): string => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    const formatDate = (date: Date) => {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[date.getMonth()]} ${date.getDate()}`;
+    };
+    
+    return `${formatDate(monday)} - ${formatDate(sunday)}`;
+  };
+
+
   if (loading || !currentUser || !userProfile) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -469,6 +486,8 @@ export default function ProfileScreen() {
           <View style={styles.personaHeader}>
             <Text style={styles.personaBadgeEmoji}>{userProfile.emoji}</Text>
             <View style={styles.personaInfo}>
+              <Text style={styles.weeklyWrappedLabel}>WEEKLY ROUND-UP</Text>
+              <Text style={styles.weeklyDateRange}>{getWeekDateRange()}</Text>
               <Text style={styles.personaType}>
                 {userProfile.type.replace(/([A-Z])/g, ' $1').trim()}
               </Text>
@@ -905,5 +924,24 @@ const styles = StyleSheet.create({
     color: '#444',
     fontSize: 14,
     marginTop: 4,
+  },
+  weeklyWrappedLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  weeklyDateRange: {
+    fontSize: 10,
+    color: '#999',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  personaHint: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
   },
 });

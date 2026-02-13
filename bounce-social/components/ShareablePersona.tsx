@@ -227,10 +227,16 @@ export default function ShareablePersona({
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
+            <Text numberOfLines={1} style={[styles.weeklyLabel, { color: theme.textPrimary }]}>
+              Weekly Round-Up
+            </Text>
+            <Text style={[styles.date, { color: theme.textSecondary }]}>{getDateRange()}</Text>
+          </View>
+          
+          <View style={styles.header}>
             <Text numberOfLines={1} style={[styles.groupName, { color: theme.textPrimary }]}>
               {groupName} Group
             </Text>
-            <Text style={[styles.date, { color: theme.textSecondary }]}>{getDateRange()}</Text>
           </View>
 
           {/* Persona */}
@@ -307,6 +313,7 @@ type Styles = {
   shareText: TextStyle;
   circleTop: ViewStyle;
   circleBottom: ViewStyle;
+  weeklyLabel: TextStyle;
 };
 
 const styles = StyleSheet.create<Styles>({
@@ -434,6 +441,15 @@ const styles = StyleSheet.create<Styles>({
     borderRadius: 100,
     bottom: -60,
     left: -60,
+  },
+
+  weeklyLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
 });
     

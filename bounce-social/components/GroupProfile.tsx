@@ -607,6 +607,23 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
     }
   };
 
+  const getWeekDateRange = (): string => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    const formatDate = (date: Date) => {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[date.getMonth()]} ${date.getDate()}`;
+    };
+    
+    return `${formatDate(monday)} - ${formatDate(sunday)}`;
+  };
+
+
 
   if (showCreateEvent) {
     return (
@@ -746,6 +763,8 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
                 {groupPersona.dominantPersona.emoji}
               </Text>
               <View style={styles.personaInfo2}>
+                <Text style={styles.weeklyWrappedLabel}>Weekly Round-Up</Text>
+                <Text style={styles.weeklyDateRange}>{getWeekDateRange()}</Text>
                 <Text style={styles.personaType2}>
                   {groupPersona.dominantPersona.type
                     .replace(/([A-Z])/g, ' $1')
@@ -2163,5 +2182,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     paddingVertical: 4,
+  },
+  weeklyWrappedLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#C3F73A',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  weeklyDateRange: {
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '600',
+    marginBottom: 6,
   },
 });
