@@ -1,11 +1,11 @@
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById } from '@/lib/database';
+import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById, getActivityReactions, toggleActivityReaction } from '@/lib/database';
 import { useImageCache } from '@/lib/ImageCacheContext';
 import { Share } from 'react-native';
 import SendNotification from './Notification';
@@ -40,6 +40,7 @@ interface Event {
   attendees: number;
   deadline: string;
   type: 'event';
+  reactions?: ActionReaction[];
 }
 
 interface Split {
@@ -54,6 +55,7 @@ interface Split {
   participants: number;
   deadline: string;
   type: 'split';
+  reactions?: ActionReaction[];
 }
 
 type Activity = Event | Split;
@@ -64,6 +66,14 @@ interface Member {
   avatar: string;
   role: 'host' | 'member';
 }
+
+interface ActionReaction {
+  emoji: string;
+  users: string[];
+  count: number;
+}
+
+const COMMON_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉', '👏', '💯', '✨'];
 
 // Function to convert real events and transactions to activities format
 const convertEventsToActivities = (events: any[], transactions: any[], members: Member[]): Activity[] => {
@@ -145,7 +155,10 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const [members, setMembers] = useState<Member[]>([]);
   const [showPersonaDetails, setShowPersonaDetails] = useState(false);
   const [showPersonaModal, setShowPersonaModal] = useState(false);
-
+  const [actionReactions, setActionReactions] = useState<Record<string, ActionReaction[]>>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [customEmoji, setCustomEmoji] = useState('');
+  const emojiInputRef = useRef<TextInput>(null);
 
   const isGroupCreator = group.createdBy === CURRENT_USER_ID;
 
@@ -288,6 +301,9 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
           const acts = convertEventsToActivities(data.events, data.transactions, transformedMembers);
           setActivities(acts);
           setJoinedActivities(new Set(acts.filter(a => a.isOwn).map(a => a.id)));
+          
+          // Load reactions
+          await loadReactions();
         }
       } catch (error) {
         console.error('Error loading group data:', error);
@@ -301,6 +317,99 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
   const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Load reactions from database
+  const loadReactions = async () => {
+    try {
+      const reactions = await getActivityReactions(CURRENT_USER_ID);
+      setActionReactions(reactions);
+    } catch (error) {
+      console.error('Error loading reactions:', error);
+    }
+  };
+
+  // Handle emoji reaction
+  const handleReaction = async (actionId: string, emoji: string, activityType: 'event' | 'split') => {
+    if (!emoji.trim()) return;
+    
+    // Optimistically update UI
+    setActionReactions(prev => {
+      const existingReactions = prev[actionId] || [];
+      const emojiReaction = existingReactions.find(r => r.emoji === emoji);
+      
+      if (emojiReaction) {
+        // User already reacted with this emoji - remove reaction
+        if (emojiReaction.users.includes(CURRENT_USER_ID)) {
+          const updatedUsers = emojiReaction.users.filter(id => id !== CURRENT_USER_ID);
+          
+          if (updatedUsers.length === 0) {
+            // Remove emoji completely if no users left
+            return {
+              ...prev,
+              [actionId]: existingReactions.filter(r => r.emoji !== emoji),
+            };
+          }
+          
+          return {
+            ...prev,
+            [actionId]: existingReactions.map(r =>
+              r.emoji === emoji
+                ? { ...r, users: updatedUsers, count: updatedUsers.length }
+                : r
+            ),
+          };
+        } else {
+          // Add user to existing emoji
+          return {
+            ...prev,
+            [actionId]: existingReactions.map(r =>
+              r.emoji === emoji
+                ? { ...r, users: [...r.users, CURRENT_USER_ID], count: r.count + 1 }
+                : r
+            ),
+          };
+        }
+      } else {
+        // New emoji reaction
+        return {
+          ...prev,
+          [actionId]: [
+            ...existingReactions,
+            { emoji, users: [CURRENT_USER_ID], count: 1 },
+          ],
+        };
+      }
+    });
+    
+    setShowEmojiPicker(null);
+    setCustomEmoji('');
+    
+    // Persist to database
+    try {
+      await toggleActivityReaction(CURRENT_USER_ID, actionId, activityType, emoji);
+    } catch (error) {
+      console.error('Error toggling reaction:', error);
+      // Reload reactions to sync with database state
+      await loadReactions();
+    }
+  };
+
+  // Check if current user reacted with this emoji
+  const hasUserReacted = (actionId: string, emoji: string): boolean => {
+    const reactions = actionReactions[actionId] || [];
+    const emojiReaction = reactions.find(r => r.emoji === emoji);
+    return emojiReaction?.users.includes(CURRENT_USER_ID) || false;
+  };
+
+  // Handle custom emoji input - reacts immediately as user types
+  const handleCustomEmojiChange = (text: string, actionId: string, activityType: 'event' | 'split') => {
+    setCustomEmoji(text);
+    
+    // If user typed an emoji (non-empty after trim), react immediately
+    if (text.trim()) {
+      handleReaction(actionId, text.trim(), activityType);
+    }
+  };
 
   // Auto-open activity modal if initialActivityId is provided
   useEffect(() => {
@@ -740,77 +849,159 @@ export default function GroupProfile({ group, onBack, initialActivityId }: Group
             const hasProfileImage = activity.creatorAvatar && !activity.creatorAvatar.includes('placeholder');
             
             return (
-              <View
-                key={activity.id}
-                style={[
-                  styles.eventBubbleContainer,
-                  activity.isOwn && styles.eventBubbleContainerOwn
-                ]}
-              >
-                {/* Left side - Other person's messages */}
-                {!activity.isOwn && (
-                  <View style={styles.avatarContainer}>
-                    {hasProfileImage ? (
-                      <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
-                    ) : (
-                      <View style={styles.avatarInitial}>
-                        <Text style={styles.avatarInitialText}>{activity.creatorInitial}</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  onPress={() => setSelectedActivity(activity)}
+              <View key={activity.id} style={styles.activityWrapper}>
+                <View
                   style={[
-                    styles.eventBubble,
-                    activity.isOwn && (isEvent ? styles.eventBubbleOwn : styles.splitBubbleOwn)
+                    styles.eventBubbleContainer,
+                    activity.isOwn && styles.eventBubbleContainerOwn
                   ]}
                 >
-                  <View style={styles.eventHeader}>
-                    <Text style={[styles.eventCreator, activity.isOwn && styles.eventCreatorOwn]}>
-                      {activity.creator}
-                    </Text>
-                    <Text style={styles.eventTime}>{activity.time}</Text>
-                  </View>
-                  <Text style={styles.eventName}>{activity.eventName}</Text>
-                  <View style={styles.eventAmountContainer}>
-                    <Ionicons 
-                      name="cash-outline" 
-                      size={16} 
-                      color={isEvent ? "#C3F73A" : "#4FC3F7"} 
-                    />
-                    <Text style={styles.eventAmount}>
-                      {isEvent 
-                        ? `$${activity.amount} per person` 
-                        : `$${activity.totalAmount} total • ${percentagePerPerson}% each`
-                      }
-                    </Text>
-                  </View>
-                  <View style={styles.eventInfoRow}>
-                    <View style={styles.eventAttendees}>
-                      <Ionicons name="people-outline" size={14} color="#888" />
-                      <Text style={styles.eventAttendeesText}>{countText}</Text>
+                  {/* Left side - Other person's messages */}
+                  {!activity.isOwn && (
+                    <View style={styles.avatarContainer}>
+                      {hasProfileImage ? (
+                        <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
+                      ) : (
+                        <View style={styles.avatarInitial}>
+                          <Text style={styles.avatarInitialText}>{activity.creatorInitial}</Text>
+                        </View>
+                      )}
                     </View>
-                    <View style={styles.eventDeadline}>
-                      <Ionicons name="time-outline" size={14} color="#888" />
-                      <Text style={styles.eventDeadlineText}>{activity.deadline}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  )}
 
-                {/* Right side - Your messages */}
-                {activity.isOwn && (
-                  <View style={styles.avatarContainer}>
-                    {hasProfileImage ? (
-                      <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
-                    ) : (
-                      <View style={styles.avatarInitial}>
-                        <Text style={styles.avatarInitialText}>{activity.creatorInitial}</Text>
+                  <TouchableOpacity
+                    onPress={() => setSelectedActivity(activity)}
+                    style={[
+                      styles.eventBubble,
+                      activity.isOwn && (isEvent ? styles.eventBubbleOwn : styles.splitBubbleOwn)
+                    ]}
+                  >
+                    <View style={styles.eventHeader}>
+                      <Text style={[styles.eventCreator, activity.isOwn && styles.eventCreatorOwn]}>
+                        {activity.creator}
+                      </Text>
+                      <Text style={styles.eventTime}>{activity.time}</Text>
+                    </View>
+                    <Text style={styles.eventName}>{activity.eventName}</Text>
+                    <View style={styles.eventAmountContainer}>
+                      <Ionicons 
+                        name="cash-outline" 
+                        size={16} 
+                        color={isEvent ? "#C3F73A" : "#4FC3F7"} 
+                      />
+                      <Text style={styles.eventAmount}>
+                        {isEvent 
+                          ? `$${activity.amount} per person` 
+                          : `$${activity.totalAmount} total • ${percentagePerPerson}% each`
+                        }
+                      </Text>
+                    </View>
+                    <View style={styles.eventInfoRow}>
+                      <View style={styles.eventAttendees}>
+                        <Ionicons name="people-outline" size={14} color="#888" />
+                        <Text style={styles.eventAttendeesText}>{countText}</Text>
+                      </View>
+                      <View style={styles.eventDeadline}>
+                        <Ionicons name="time-outline" size={14} color="#888" />
+                        <Text style={styles.eventDeadlineText}>{activity.deadline}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Right side - Your messages */}
+                  {activity.isOwn && (
+                    <View style={styles.avatarContainer}>
+                      {hasProfileImage ? (
+                        <Image source={{ uri: activity.creatorAvatar }} style={styles.eventAvatar} />
+                      ) : (
+                        <View style={styles.avatarInitial}>
+                          <Text style={styles.avatarInitialText}>{activity.creatorInitial}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                {/* Reactions Section - Outside the row flex container */}
+                <View style={[styles.reactionsWrapper, activity.isOwn && styles.reactionsWrapperOwn]}>
+                  <View style={styles.reactionsContainer}>
+                    {/* Existing Reactions */}
+                    {actionReactions[activity.id] && actionReactions[activity.id].length > 0 && (
+                      <View style={styles.reactionsList}>
+                        {actionReactions[activity.id].map((reaction) => (
+                          <TouchableOpacity
+                            key={reaction.emoji}
+                            style={[
+                              styles.reactionBubble,
+                              hasUserReacted(activity.id, reaction.emoji) && styles.reactionBubbleActive,
+                            ]}
+                            onPress={() => {
+                              const activityType = activity.type;
+                              handleReaction(activity.id, reaction.emoji, activityType);
+                            }}
+                          >
+                            <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                            <Text style={styles.reactionCount}>{reaction.count}</Text>
+                          </TouchableOpacity>
+                        ))}
                       </View>
                     )}
+
+                    {/* Add Reaction Button */}
+                    <TouchableOpacity
+                      style={styles.addReactionButton}
+                      onPress={() => {
+                        const isOpen = showEmojiPicker === activity.id;
+                        setShowEmojiPicker(isOpen ? null : activity.id);
+                        if (!isOpen) {
+                          setTimeout(() => emojiInputRef.current?.focus(), 100);
+                        }
+                      }}
+                    >
+                      <Ionicons name={showEmojiPicker === activity.id ? "close" : "add-circle-outline"} size={20} color="#666" />
+                    </TouchableOpacity>
                   </View>
-                )}
+
+                  {/* Emoji Picker */}
+                  {showEmojiPicker === activity.id && (
+                    <View style={styles.emojiPicker}>
+                      <Text style={styles.emojiPickerTitle}>Quick Reactions</Text>
+                      <View style={styles.commonEmojis}>
+                        {COMMON_EMOJIS.map((emoji) => (
+                          <TouchableOpacity
+                            key={emoji}
+                            style={styles.emojiOption}
+                            onPress={() => {
+                              const activityType = activity.type;
+                              handleReaction(activity.id, emoji, activityType);
+                            }}
+                          >
+                            <Text style={styles.emojiOptionText}>{emoji}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      
+                      {/* Custom Emoji Input */}
+                      <View style={styles.customEmojiContainer}>
+                        <Text style={styles.customEmojiLabel}>Or choose from keyboard</Text>
+                        <View style={styles.customEmojiInput}>
+                          <TextInput
+                            ref={emojiInputRef}
+                            style={styles.emojiTextInput}
+                            placeholder="Tap to open emoji keyboard 😊"
+                            placeholderTextColor="#666"
+                            value={customEmoji}
+                            onChangeText={(text) => {
+                              const activityType = activity.type;
+                              handleCustomEmojiChange(text, activity.id, activityType);
+                            }}
+                            maxLength={2}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
               </View>
             );
           })}
@@ -1323,9 +1514,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 15,
   },
- eventBubbleContainer: {
-    flexDirection: 'row',
+  activityWrapper: {
     marginBottom: 15,
+  },
+  eventBubbleContainer: {
+    flexDirection: 'row',
     alignItems: 'flex-end',
   },
   eventBubbleContainerOwn: {
@@ -1848,8 +2041,127 @@ const styles = StyleSheet.create({
   personaHint: {
     fontSize: 13,
     color: '#999',
-},
+  },
   shareButton: {
-  padding: 10,
+    padding: 10,
+  },
+  reactionsWrapper: {
+    width: '100%',
+    paddingLeft: 43, // Align with message bubble (avatar width 35 + margin 8)
+  },
+  reactionsWrapperOwn: {
+    paddingLeft: 0,
+    paddingRight: 43, // Align with own message bubble
+    alignItems: 'flex-end',
+  },
+  reactionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingTop: 8,
+    gap: 8,
+  },
+  reactionsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+  },
+  reactionBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#222',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  reactionBubbleActive: {
+    backgroundColor: '#2a2a2a',
+    borderColor: '#C3F73A',
+  },
+  reactionEmoji: {
+    fontSize: 16,
+  },
+  reactionCount: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addReactionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#222',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  emojiPicker: {
+    flexDirection: 'column',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    marginHorizontal: 0,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  emojiPickerTitle: {
+    color: '#999',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  commonEmojis: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  emojiOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#222',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiOptionText: {
+    fontSize: 24,
+  },
+  customEmojiContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    paddingTop: 12,
+  },
+  customEmojiLabel: {
+    color: '#999',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  customEmojiInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#222',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  emojiTextInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    paddingVertical: 4,
   },
 });
