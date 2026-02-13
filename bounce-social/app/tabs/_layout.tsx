@@ -82,7 +82,7 @@ export default function TabLayout() {
           },
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#0a0a0a',
+            backgroundColor: '#131313',
             height: 120,
             borderBottomWidth: 2,
             borderBottomColor: '#C3F73A',

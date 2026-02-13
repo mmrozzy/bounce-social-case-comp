@@ -3,7 +3,7 @@ import { Image, StyleSheet } from 'react-native';
 export default function Logo() {
   return (
     <Image 
-      source={require('@/assets/logos/bounce_social_logo.png')}
+      source={require('@/assets/logos/bounce_together.png')}
       style={styles.logo}
       resizeMode="contain"
     />
