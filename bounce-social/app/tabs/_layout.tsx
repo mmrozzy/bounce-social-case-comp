@@ -127,8 +127,7 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   headerBar: {
     width: '100%',
-    paddingHorizontal: 0,
-    paddingVertical: 20,
+    paddingBottom: 40,
     paddingLeft: 0,
     justifyContent: 'flex-start',
   },

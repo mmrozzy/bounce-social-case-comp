@@ -3,7 +3,7 @@ import { Image, StyleSheet } from 'react-native';
 export default function Logo() {
   return (
     <Image 
-      source={require('@/assets/logos/bounce_together.png')}
+      source={require('@/assets/logos/together.png')}
       style={styles.logo}
       resizeMode="contain"
     />
@@ -12,7 +12,7 @@ export default function Logo() {
 
 const styles = StyleSheet.create({
   logo: {
-    width: 180,
-    height: 60
+    width: 280,  
+    height: 150,  
   },
 });
