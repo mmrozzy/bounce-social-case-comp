@@ -475,7 +475,7 @@ export default function ProfileScreen() {
       
       {/* Profile content */}
       <View style={styles.content}>
-        <Text style={styles.greeting}>Hello, Guillaume!</Text>
+        <Text style={styles.greeting}>Hello, Ari!</Text>
 
         {/* Persona Badge */}
         <TouchableOpacity 
@@ -630,7 +630,7 @@ export default function ProfileScreen() {
         >
           <UserWrappedAppView
             userProfile={userProfile}
-            userName="Guillaume"
+            userName="Ari"
             onClose={() => setShowUserWrapped(false)}
             onShare={(theme) => {
               setShowUserWrapped(false);
@@ -650,7 +650,7 @@ export default function ProfileScreen() {
         >
           <UserShareableWrapped
             userProfile={userProfile}
-            userName="Guillaume"
+            userName="Ari"
             selectedTheme={selectedTheme}
             onBack={() => setShowUserShareable(false)}
           />

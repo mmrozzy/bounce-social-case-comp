@@ -2,7 +2,7 @@ import { User, Group, Event, Transaction } from '../src/types'
 
 // All users in the system
 export const allUsers: User[] = [
-  { id: 'current-user', name: 'Guillaume', joinedGroups: ['group-1'] },
+  { id: 'current-user', name: 'Ari', joinedGroups: ['group-1'] },
   { id: 'user-2', name: 'Alex Chen', joinedGroups: ['group-1'] },
   { id: 'user-3', name: 'Maya Patel', joinedGroups: ['group-1'] },
   { id: 'user-4', name: 'Jordan Lee', joinedGroups: ['group-1'] },
