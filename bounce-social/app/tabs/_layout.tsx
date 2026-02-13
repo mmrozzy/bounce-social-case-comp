@@ -127,8 +127,9 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   headerBar: {
     width: '100%',
-    paddingBottom: 40,
-    paddingLeft: 0,
+    paddingBottom: 10,
+    paddingLeft: 10,
     justifyContent: 'flex-start',
+    alignItems: 'flex-start',
   },
 });

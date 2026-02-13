@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase } from './supabase.js'
 import { User, Group, Event, Transaction } from '../src/types'
 
 // Upload image to Supabase Storage
