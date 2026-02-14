@@ -5,10 +5,10 @@ import * as ImagePicker from 'expo-image-picker';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById, getActivityReactions, toggleActivityReaction } from '@/lib/database';
-import { useImageCache } from '@/lib/ImageCacheContext';
+import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById, getActivityReactions, toggleActivityReaction } from '@/src/services/database';
+import { useImageCache } from '@/src/contexts/ImageCacheContext';
 import { Share } from 'react-native';
-import SendNotification from './Notification';
+import SendNotification from '../ui/Notification';
 import PersonaWrapper from './GroupPersona';
 import { LinearGradient } from 'expo-linear-gradient';
 

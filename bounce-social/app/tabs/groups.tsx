@@ -3,11 +3,11 @@ import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
-import GroupProfile from '@/components/GroupProfile';
-import CreateGroup from '@/components/CreateGroup';
-import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/lib/navigationState';
-import { getGroups, createGroup } from '@/lib/database';
-import { useImageCache } from '@/lib/ImageCacheContext';
+import GroupProfile from '@/src/components/features/GroupProfile';
+import CreateGroup from '@/src/components/features/CreateGroup';
+import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/src/services/navigationState';
+import { getGroups, createGroup } from '@/src/services/database';
+import { useImageCache } from '@/src/contexts/ImageCacheContext';
 
 // Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';

@@ -68,7 +68,7 @@ Low activity, intimate settings, casual vibes.
 
 ```typescript
 import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer'
-import { getGroupData } from '@/data/groupMockData'
+import { getGroupData } from '@/src/__mocks__/groupMockData'
 
 // Get group data
 const groupData = getGroupData(group.id)

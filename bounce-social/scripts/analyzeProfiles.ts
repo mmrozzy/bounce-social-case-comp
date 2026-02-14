@@ -1,7 +1,7 @@
 import { analyzeUserProfile } from '../src/utils/profileAnalyzer'
 import { extractUserFeatures } from '../src/types/feature_extractor'
 import { matchPersona } from '../src/types/personaMatcher'
-import { sampleUsers, sampleGroups, sampleEvents, sampleTransactions } from '../data/sampleData'
+import { sampleUsers, sampleGroups, sampleEvents, sampleTransactions } from '../src/__mocks__/sampleData'
 
 console.log('🎭 Bounce Bolt Persona Analysis Demo\n')
 console.log('='.repeat(70))

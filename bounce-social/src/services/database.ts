@@ -1,5 +1,5 @@
-import { supabase } from './supabase.js'
-import { User, Group, Event, Transaction } from '../src/types'
+import { supabase } from '../config/supabase';
+import { User, Group, Event, Transaction } from '../types';
 
 // Upload image to Supabase Storage
 export async function uploadImage(file: { uri: string; type: string; name: string }, folder: 'profiles' | 'banners' | 'groups') {

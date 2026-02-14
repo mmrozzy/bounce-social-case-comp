@@ -4,13 +4,13 @@ import { useRouter } from 'expo-router';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { setNavigationTarget } from '@/lib/navigationState';
-import { PersonaBadge } from '@/components/PersonaBadge';
+import { setNavigationTarget } from '@/src/services/navigationState';
+import { PersonaBadge } from '@/src/components/ui/PersonaBadge';
 import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
-import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages, getActivityReactions, toggleActivityReaction } from '@/lib/database';
-import { useImageCache } from '@/lib/ImageCacheContext';
-import UserWrappedAppView from '@/components/UserPersonaCard';
-import UserShareableWrapped from '@/components/UserShareablePersona';
+import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages, getActivityReactions, toggleActivityReaction } from '@/src/services/database';
+import { useImageCache } from '@/src/contexts/ImageCacheContext';
+import UserWrappedAppView from '@/src/components/features/UserPersonaCard';
+import UserShareableWrapped from '@/src/components/features/UserShareablePersona';
 
 interface RecentAction {
   id: string;

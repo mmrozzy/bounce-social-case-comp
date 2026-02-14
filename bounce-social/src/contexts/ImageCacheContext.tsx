@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getUsers, getGroups } from './database';
+import { getUsers, getGroups } from '../services/database';
 
 interface ImageCache {
   userImages: Record<string, { profileImage?: string; bannerImage?: string }>;

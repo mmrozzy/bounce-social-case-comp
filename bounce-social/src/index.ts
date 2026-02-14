@@ -32,11 +32,11 @@ export {
   getTransactions,
   createTransaction,
   getGroupData
-} from '../lib/database'
+} from './services/database'
 
 // Data
-export { personas } from '../data/personas'
+export { personas } from './__mocks__/personas'
 
 // Components
-export { UserPersonaCard } from '../components/UserPersonaCard'
-export { PersonaBadge, PersonaChip } from '../components/PersonaBadge'
+export { UserPersonaCard } from './components/features/UserPersonaCard'
+export { PersonaBadge, PersonaChip } from './components/ui/PersonaBadge'

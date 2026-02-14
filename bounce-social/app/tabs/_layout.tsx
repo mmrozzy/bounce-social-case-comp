@@ -1,11 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Logo from '@/components/Logo';
+import Logo from '@/src/components/ui/Logo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { View, StyleSheet, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications'; 
 import { useEffect } from 'react'; 
-import { ImageCacheProvider } from '@/lib/ImageCacheContext';
+import { ImageCacheProvider } from '@/src/contexts/ImageCacheContext';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({

@@ -1,5 +1,5 @@
 import { Persona } from './index'
-import { personas } from '../../data/personas'
+import { personas } from '../__mocks__/personas'
 
 // Weights for each feature in similarity calculation
 const FEATURE_WEIGHTS = {
