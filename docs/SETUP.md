@@ -37,29 +37,9 @@
 
 4. **Start the development server**
    ```bash
-   npm start
+   npx expo start
    ```
 
-## Project Structure
-
-```
-bounce-social/
-├── app/                    # Expo Router app directory (pages)
-├── src/
-│   ├── components/
-│   │   ├── ui/            # Reusable UI components
-│   │   └── features/      # Feature-specific components
-│   ├── config/            # Configuration files
-│   ├── services/          # API and database services
-│   ├── contexts/          # React contexts
-│   ├── hooks/             # Custom React hooks
-│   ├── utils/             # Utility functions
-│   ├── types/             # TypeScript type definitions
-│   └── __mocks__/         # Mock data for development
-├── assets/                # Images, fonts, etc.
-├── docs/                  # Documentation
-└── scripts/               # Utility scripts
-```
 
 ## Path Aliases
 
@@ -77,34 +57,3 @@ The project uses TypeScript path aliases for cleaner imports:
 - `@types/*` - src/types
 - `@mocks/*` - src/__mocks__
 
-## Development
-
-### Running Tests
-```bash
-npm test
-```
-
-### Linting
-```bash
-npm run lint
-```
-
-### Platform-Specific Development
-```bash
-npm run ios      # Run on iOS simulator
-npm run android  # Run on Android emulator
-npm run web      # Run in web browser
-```
-
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Ensure all tests pass
-4. Submit a pull request
-
-## Documentation
-
-- [Persona System](./PERSONA_SYSTEM.md)
-- [Group Persona System](./GROUP_PERSONA_SYSTEM.md)
-- [Supabase Setup](./supabase_setup.md)

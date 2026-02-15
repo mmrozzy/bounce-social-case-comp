@@ -1,10 +1,22 @@
-# 🎳 Bounce Bolt Social
+# Bounce Together
 
-A social expense tracking and group management app that analyzes user behavior to create personality profiles.
+**Created with [m-kln](https://github.com/m-kln)** for the **BoltX[Bounce](https://bouncepay.ca/) Business Tech Case Competition**  
+
+Selected from 150 applicants to compete among 40 participants • Finished 2nd Place Overall
+
+---
+
+## Project Overview
+
+Bounce Together is a **cross-platform mobile social expense tracking and group event management app** featuring an automated behavioral analysis system. The app uses feature extraction algorithms to classify users into 12 distinct personality personas based on their spending habits, social patterns, and group dynamics.
+
+It is intended as a social extension of the [Bounce Pay](https://bouncepay.ca/) application.
+
+Built with React Native and Expo, the app integrates real-time database synchronization via Supabase and offers shareable persona cards with social media integration, allowing users to showcase their spending personality profiles.
 
 ## Features
 
-### 🎭 User Persona System
+### User Persona System
 
 Automatically analyze user behavior patterns to classify them into 12 distinct social personas based on:
 
@@ -12,7 +24,7 @@ Automatically analyze user behavior patterns to classify them into 12 distinct s
 - **Financial Patterns**: Spending habits, generosity, payment speed
 - **Activity Patterns**: Event frequency, preferred times of day
 
-### 👥 Group Persona System
+### Group Persona System
 
 Analyze group dynamics based on collective member behavior:
 
@@ -21,39 +33,40 @@ Analyze group dynamics based on collective member behavior:
 - **Group Traits**: Collective behavioral characteristics
 - **Group Stats**: Aggregated metrics (total spent, event frequency, generosity)
 
-[Full Group Persona Documentation →](docs/GROUP_PERSONA_SYSTEM.md)
+**[→ Learn how the persona system works](docs/HOW_PERSONAS_WORK.md)**
 
 #### Available Personas
 
-- 🎯 **The Mom Friend** - Organized, caring, quick to settle
-- 🎉 **The Party Animal** - Social butterfly, loves big groups
-- 🍜 **The Foodie Explorer** - Premium tastes, adventurous eater
-- 💸 **The Budget Hawk** - Cost-conscious, watches every penny
-- 👻 **The Ghost** - Hard to pin down, low activity
-- 🌟 **The Hype Person** - High energy, generous, social
-- 📅 **The Planner** - Detail-oriented, organized, reliable
-- 🎲 **The Wild Card** - Spontaneous, unpredictable, fun
-- 🏠 **The Hometown Hero** - Local expert, creature of habit
-- ☕ **The Early Bird** - Morning person, punctual
-- 🦉 **The Night Owl** - Night person, spontaneous
-- 💰 **The Generous Whale** - Big spender, loves treating friends
+- **The Mom Friend** - Organized, caring, quick to settle
+- **The Party Animal** - Social butterfly, loves big groups
+- **The Foodie Explorer** - Premium tastes, adventurous eater
+- **The Budget Hawk** - Cost-conscious, watches every penny
+- **The Ghost** - Hard to pin down, low activity
+- **The Hype Person** - High energy, generous, social
+- **The Planner** - Detail-oriented, organized, reliable
+- **The Wild Card** - Spontaneous, unpredictable, fun
+- **The Hometown Hero** - Local expert, creature of habit
+- **The Early Bird** - Morning person, punctual
+- **The Night Owl** - Night person, spontaneous
+- **The Generous Whale** - Big spender, loves treating friends
 
-[Full Persona Documentation →](docs/PERSONA_SYSTEM.md)
 
-### 👥 Group Management
+### Group Management
 
 Create and manage groups with friends.
 
-### 📅 Event Planning
+### Event Planning
 
 Organize events and track attendance.
 
-### 💰 Expense Splitting
+### Expense Splitting
 
 Smart expense tracking with:
 - Split bills evenly or custom amounts
 - P2P payments
 - Event-based transactions
+
+Note: Working payments are handled by the Bounce Pay application and hence not implemented in this extension. This project focuses on using data from these payments.
 
 ## Project Structure
 
@@ -61,27 +74,76 @@ Smart expense tracking with:
 bounce-bolt/
 ├── app/                    # Expo Router app directory (pages)
 │   └── tabs/              # Tab navigation screens
+│       ├── _layout.tsx    # Tab layout configuration
+│       ├── groups.tsx     # Group management screen
+│       └── profile.tsx    # User profile & persona screen
 ├── src/
 │   ├── components/
 │   │   ├── ui/            # Reusable UI components
+│   │   │   ├── Logo.tsx
+│   │   │   ├── Notification.tsx
+│   │   │   └── PersonaBadge.tsx
 │   │   └── features/      # Feature-specific components
+│   │       ├── CreateEvent.tsx
+│   │       ├── CreateGroup.tsx
+│   │       ├── CreateSplit.tsx
+│   │       ├── GroupPersona.tsx
+│   │       ├── GroupPersonaAppView.tsx
+│   │       ├── GroupProfile.tsx
+│   │       ├── ShareablePersona.tsx
+│   │       ├── UserPersonaCard.tsx
+│   │       └── UserShareablePersona.tsx
 │   ├── config/            # Configuration files
+│   │   └── supabase.ts    # Supabase client setup
 │   ├── services/          # API and database services
+│   │   ├── database.ts    # Database queries & mutations
+│   │   └── navigationState.ts
 │   ├── contexts/          # React contexts
+│   │   └── ImageCacheContext.tsx
 │   ├── hooks/             # Custom React hooks
 │   ├── utils/             # Utility functions
-│   ├── types/             # TypeScript type definitions
-│   └── __mocks__/         # Mock data for development
-├── assets/                # Images, fonts, etc.
+│   │   └── profileAnalyzer.ts  # Persona analysis algorithms
+│   ├── types/             # TypeScript type definitions & core logic
+│   │   ├── index.ts       # Main type exports
+│   │   ├── feature_extractor.ts     # Behavioral feature extraction
+│   │   ├── personaMatcher.ts        # Persona matching algorithm
+│   │   └── groupPersonaAnalyzer.ts  # Group dynamics analysis
+│   └── __mocks__/         # Mock data for development & testing
+│       ├── mockUserData.ts
+│       ├── groupMockData.ts
+│       ├── personas.ts
+│       └── sampleData.ts
+├── assets/                # Images, fonts, logos
+│   ├── images/
+│   │   └── profile/
+│   └── logos/
 ├── docs/                  # Documentation
-│   ├── PERSONA_SYSTEM.md
-│   ├── GROUP_PERSONA_SYSTEM.md
-│   ├── supabase_setup.md
-│   └── SETUP.md
+│   ├── HOW_PERSONAS_WORK.md
+│   ├── supabase_setup.md          # Database setup guide
+│   └── SETUP.md                   # Project setup instructions
 └── scripts/               # Utility scripts
+    └── analyzeProfiles.ts # CLI tool for testing persona analysis
 ```
 
+### Key Architecture Components
+
+#### Behavioral Analysis Engine
+- **Feature Extraction** ([src/types/feature_extractor.ts](src/types/feature_extractor.ts)): Analyzes transaction history, event attendance, and group interactions to extract quantifiable behavioral metrics
+- **Persona Matcher** ([src/types/personaMatcher.ts](src/types/personaMatcher.ts)): Multi-dimensional matching algorithm that classifies users into one of 12 distinct personas
+- **Profile Analyzer** ([src/utils/profileAnalyzer.ts](src/utils/profileAnalyzer.ts)): Coordinates the analysis pipeline and generates comprehensive user profiles
+
+#### Real-Time Database Layer
+- **Supabase Integration** ([src/config/supabase.ts](src/config/supabase.ts)): PostgreSQL database with real-time subscriptions
+- **Database Service** ([src/services/database.ts](src/services/database.ts)): Type-safe queries and mutations for users, groups, events, and transactions
+
+#### Social Features
+- **Shareable Persona Cards**: Generate exportable persona profiles for social media
+- **Group Dynamics**: Analyze collective behavioral patterns across groups
+- **Event Management**: Track attendance and participation patterns
+
 ## Quick Start
+
+For detailed setup instructions, see [SETUP.md](docs/SETUP.md) and [Supabase Setup Guide](docs/supabase_setup.md).
 
 ### Installation
 
@@ -92,145 +154,45 @@ npm install
 ### Running the App
 
 ```bash
-npm start
+npx expo start
 ```
 
-### Testing Persona System
-
-```bash
-npx ts-node scripts/analyzeProfiles.ts
-```
-
-## Usage Examples
-
-### Analyzing a User Profile
-
-```typescript
-import { analyzeUserProfile } from './src'
-
-const profile = analyzeUserProfile(
-  userId,
-  transactions,
-  events,
-  groups
-)
-
-console.log(profile.emoji, profile.description)
-// 🍜 The Foodie Explorer - Quality over quantity, loves trying new places
-```
-
-### Using in React Components
-
-```typescript
-import { UserPersonaCard } from './components/UserPersonaCard'
-
-function ProfileScreen({ user, data }) {
-  return (
-    <UserPersonaCard
-      userId={user.id}
-      userName={user.name}
-      transactions={data.transactions}
-      events={data.events}
-      groups={data.groups}
-    />
-  )
-}
-```
-
-### Displaying Persona Badges
-
-```typescript
-import { PersonaBadge } from './components/PersonaBadge'
-
-function UserListItem({ user, data }) {
-  return (
-    <View>
-      <Text>{user.name}</Text>
-      <PersonaBadge
-        userId={user.id}
-        transactions={data.transactions}
-        events={data.events}
-        groups={data.groups}
-        size="small"
-        showLabel={false}
-      />
-    </View>
-  )
-}
-```
-
-## API Reference
-
-### Core Functions
-
-#### `analyzeUserProfile(userId, transactions, events, groups)`
-Returns a complete user profile including persona type, traits, and statistics.
-
-#### `extractUserFeatures(userId, transactions, events, groups)`
-Extracts raw behavioral features from user data.
-
-#### `matchPersona(userPersona)`
-Matches a user's persona features to predefined persona types.
-
-#### `getPersonaDetails(personaKey)`
-Returns display information (emoji, description, traits) for a persona type.
-
-### Components
-
-#### `<UserPersonaCard />`
-Full-page persona profile display with detailed stats and traits.
-
-#### `<PersonaBadge />`
-Compact persona indicator for lists and smaller UI elements.
-
-#### `<PersonaChip />`
-Minimal chip-style persona label.
-
-## Type System
-
-```typescript
-interface Persona {
-  groupSize: 'small' | 'medium' | 'large'
-  socialness: 'introvert' | 'ambivert' | 'extrovert'
-  budgetLevel: 'budget' | 'moderate' | 'premium'
-  generosity: 'low' | 'medium' | 'high'
-  paymentSpeed: 'fast' | 'medium' | 'slow'
-  activityLevel: 'low' | 'medium' | 'high'
-  timePreference: 'morning' | 'afternoon' | 'evening' | 'night'
-}
-
-interface ProfileResult {
-  type: string
-  emoji: string
-  description: string
-  traits: string[]
-  stats: {
-    eventsAttended: number
-    totalSpent: number
-    avgEventCost: number
-    features: UserFeatures
-  }
-}
-```
 
 ## Documentation
 
-- [Persona System Documentation](PERSONA_SYSTEM.md) - Complete guide to the persona system
-- [Type Definitions](src/types/index.ts) - TypeScript types and interfaces
+- [How Personas Work](docs/HOW_PERSONAS_WORK.md) - Simple guide to the behavioral analysis system
+- [Setup Guide](docs/SETUP.md) - Project installation and configuration
+- [Supabase Setup](docs/supabase_setup.md) - Database setup and configuration
+
+
 
 ## Tech Stack
 
-- **Framework**: React Native + Expo
-- **Language**: TypeScript
-- **State Management**: React Hooks
-- **Backend**: Supabase (configured in lib/supabase.js)
+- **Framework**: React Native + Expo (Cross-platform mobile development)
+- **Language**: TypeScript (Type-safe codebase)
+- **Backend**: Supabase (PostgreSQL with real-time subscriptions)
+- **State Management**: React Hooks + Context API
+- **Navigation**: Expo Router (File-based routing)
+- **Database**: PostgreSQL with real-time listeners
 
-## Contributing
+## Core Technologies & Algorithms
 
-1. Feature extraction tweaks: Edit [src/types/feature_extractor.ts](src/types/feature_extractor.ts)
-2. Adding personas: Edit [data/personas.ts](data/personas.ts)
-3. Matching algorithm: Edit [src/types/personaMatcher.ts](src/types/personaMatcher.ts)
+### Behavioral Classification System
+The app employs a multi-dimensional analysis system:
 
-## License
+1. **Feature Extraction**: Processes user activity data across seven dimensions:
+   - Group size preferences (small/medium/large)
+   - Social behavior patterns (introvert/ambivert/extrovert)
+   - Budget consciousness (budget/moderate/premium)
+   - Generosity levels (low/medium/high)
+   - Payment speed (fast/medium/slow)
+   - Activity levels (low/medium/high)
+   - Time preferences (morning/afternoon/evening/night)
 
-MIT
+2. **Persona Matching**: Uses weighted scoring across behavioral dimensions to classify users into 12 distinct personas
+
+3. **Group Analytics**: Aggregates member personas to analyze collective group dynamics and identify dominant behavioral patterns
+
+### Real-Time Synchronization
+- Supabase real-time subscriptions for live updates
+- Image caching for improved performance
