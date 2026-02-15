@@ -1,0 +1,298 @@
+/**
+ * @fileoverview Groups screen and management.
+ * Displays list of user's groups with navigation to group profiles.
+ * Handles group creation and inter-tab navigation coordination.
+ */
+
+import CreateGroup from '@/src/components/features/CreateGroup';
+import GroupProfile from '@/src/components/features/GroupProfile';
+import { useImageCache } from '@/src/contexts/ImageCacheContext';
+import { createGroup, getGroups } from '@/src/services/database';
+import { clearNavigationTarget, getNavigationTarget } from '@/src/services/navigationState';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const CURRENT_USER_ID = 'current-user';
+
+interface Group {
+  id: string;
+  name: string;
+  members: number;
+  image: string;
+  banner?: string;
+  createdBy: string;
+}
+
+const GROUP_COLORS = ['#C3F73A', '#FF6B6B', '#4FC3F7', '#FFD93D'];
+
+export default function GroupsScreen() {
+  const navigation = useNavigation();
+  const { getGroupImages } = useImageCache();
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(undefined);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load groups from Supabase
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  // Reset to groups list when tab is pressed
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress' as any, (e: any) => {
+      if (selectedGroup) {
+        e.preventDefault();
+        setSelectedGroup(null);
+        setSelectedActivityId(undefined);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, selectedGroup]);
+
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      const groupsData = await getGroups();
+      // Convert to the format expected by the UI, using cached images
+      const formattedGroups: Group[] = groupsData.map((g: any) => {
+        const cachedImages = getGroupImages(g.id);
+        return {
+          id: g.id,
+          name: g.name,
+          members: g.members.length,
+          image: cachedImages?.profileImage || g.profileImage || 'https://via.placeholder.com/60',
+          banner: cachedImages?.bannerImage || g.bannerImage,
+          createdBy: g.members[0] || 'current-user' // First member is creator
+        };
+      });
+      setGroups(formattedGroups);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Listen for navigation from other tabs
+  useFocusEffect(
+    useCallback(() => {
+      const navTarget = getNavigationTarget();
+      if (navTarget.groupId && navTarget.activityId) {
+        const group = groups.find(g => g.id === navTarget.groupId);
+        if (group) {
+          setSelectedGroup(group);
+          setSelectedActivityId(navTarget.activityId);
+          clearNavigationTarget();
+        }
+      }
+    }, [groups])
+  );
+
+  // Reload groups when screen comes into focus (e.g., after deleting a group)
+  useFocusEffect(
+    useCallback(() => {
+      if (!selectedGroup) {
+        loadGroups();
+      }
+    }, [selectedGroup])
+  );
+
+  const handleCreateGroup = async (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
+    try {
+      await createGroup(groupName, [CURRENT_USER_ID]);
+      await loadGroups();
+      setShowCreateGroup(false);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      // Optionally show an error message to the user
+    }
+  };
+
+  if (showCreateGroup) {
+    return (
+      <CreateGroup 
+        onBack={() => setShowCreateGroup(false)}
+        onCreateGroup={handleCreateGroup}
+      />
+    );
+  }
+
+  // Show Group Profile if selected
+  if (selectedGroup) {
+    return (
+      <GroupProfile 
+        group={selectedGroup} 
+        onBack={() => {
+          setSelectedGroup(null);
+          setSelectedActivityId(undefined);
+        }}
+        initialActivityId={selectedActivityId}
+      />
+    );
+  }
+
+  // Group List View
+  return (
+    <View style={styles.container}>
+      {loading ? (
+        <View style={[styles.container, styles.centerContent]}>
+          <Text style={styles.loadingText}>Loading groups...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <TouchableOpacity 
+              style={styles.createGroupButton}
+              onPress={() => setShowCreateGroup(true)}
+            >
+              <Ionicons name="add-circle" size={24} color="#000" />
+              <Text style={styles.createGroupButtonText}>Create New Group</Text>
+            </TouchableOpacity>
+          }
+          renderItem={({ item, index }) => {
+            // Check if there's a valid image URL (http/https/file/content)
+            const hasValidImage = item.image && (
+              item.image.startsWith('http://') || 
+              item.image.startsWith('https://') || 
+              item.image.startsWith('file://') || 
+              item.image.startsWith('content://')
+            );
+            
+            return (
+              <TouchableOpacity 
+                style={styles.groupItem}
+                onPress={() => setSelectedGroup(item)}
+              >
+                <View style={styles.groupItemImageContainer}>
+                  {hasValidImage ? (
+                    <Image source={{ uri: item.image }} style={styles.groupItemImage} />
+                  ) : (
+                    <View style={[styles.groupItemDiamond, { backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }]} />
+                  )}
+                </View>
+                <View style={styles.groupItemInfo}>
+                  <Text style={styles.groupItemName}>{item.name}</Text>
+                  <Text style={styles.groupItemMembers}>{item.members} members</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#666" />
+              </TouchableOpacity>
+            );
+          }}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#333333',
+  },
+  groupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#222222',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#333',
+    marginHorizontal: 15,
+  },
+  groupItemImageContainer: {
+    width: 60,
+    height: 60,
+    marginRight: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderRadius: 30,
+  },
+  groupItemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  groupItemDiamond: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 25,
+    borderRightWidth: 25,
+    borderBottomWidth: 45,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderRadius: 5,
+  },
+  groupItemImageBackground: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  groupItemImageMask: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 25,
+    borderRightWidth: 25,
+    borderBottomWidth: 45,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 5,
+  },
+  groupItemInfo: {
+    flex: 1,
+  },
+  groupItemName: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  groupItemMembers: {
+    color: '#666',
+    fontSize: 14,
+  },
+  separator: {
+    height: 4,
+    backgroundColor: '#333333',
+    marginLeft: 90,
+  },
+  createGroupButton: {
+    flexDirection: 'row',
+    backgroundColor: '#C3F73A',
+    paddingVertical: 15,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    margin: 20,
+    shadowColor: '#C3F73A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  createGroupButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#C3F73A',
+    fontSize: 16,
+  },
+});
