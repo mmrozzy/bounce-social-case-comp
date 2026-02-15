@@ -1,7 +1,26 @@
-import { extractUserFeatures } from '../types/feature_extractor'
-import { matchPersona, getPersonaDetails } from '../types/personaMatcher'
-import { ProfileResult, Transaction, Event, Group } from '../types'
+/**
+ * @fileoverview User profile analysis coordinator.
+ * Orchestrates the persona classification pipeline by combining feature extraction,
+ * persona matching, and statistical analysis to generate complete user profiles.
+ * 
+ * This is the main entry point for analyzing user behavior and generating persona results.
+ */
 
+import { Event, Group, ProfileResult, Transaction } from '../types'
+import { extractUserFeatures } from '../types/feature_extractor'
+import { getPersonaDetails, matchPersona } from '../types/personaMatcher'
+
+/**
+ * Analyzes a user's complete behavioral profile.
+ * Combines feature extraction, persona matching, and statistical calculations
+ * to generate a comprehensive persona profile with traits and metrics.
+ * 
+ * @param userId - Unique identifier of the user to analyze
+ * @param transactions - All transactions in the system
+ * @param events - All events in the system
+ * @param groups - All groups in the system
+ * @returns Complete profile with persona type, emoji, description, traits, and statistics
+ */
 export function analyzeUserProfile(
   userId: string,
   transactions: Transaction[],
@@ -74,7 +93,6 @@ export function analyzeUserProfile(
     ? totalSpent / userTransactions.length
     : 0
   
-  // Simplified settlement hours (would need actual timestamps)
   const avgSettlementHours = p2pTransactions.length > 0 ? 48 : 120
   
   // Most active hour

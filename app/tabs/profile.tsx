@@ -1,16 +1,21 @@
-import { View, Image, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, RefreshControl, Modal, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
-import { setNavigationTarget } from '@/src/services/navigationState';
-import { PersonaBadge } from '@/src/components/ui/PersonaBadge';
-import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
-import { getUserById, getGroups, getEvents, getTransactions, uploadImage, updateUserImages, getActivityReactions, toggleActivityReaction } from '@/src/services/database';
-import { useImageCache } from '@/src/contexts/ImageCacheContext';
+/**
+ * @fileoverview User profile screen.
+ * Displays user profile with persona analysis, activity feed, statistics, and settings.
+ * Includes image upload, persona viewing/sharing, and activity reactions.
+ */
+
 import UserWrappedAppView from '@/src/components/features/UserPersonaCard';
 import UserShareableWrapped from '@/src/components/features/UserShareablePersona';
+import { useImageCache } from '@/src/contexts/ImageCacheContext';
+import { getActivityReactions, getEvents, getGroups, getTransactions, getUserById, toggleActivityReaction, updateUserImages, uploadImage } from '@/src/services/database';
+import { setNavigationTarget } from '@/src/services/navigationState';
+import { analyzeUserProfile } from '@/src/utils/profileAnalyzer';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface RecentAction {
   id: string;
@@ -175,9 +180,8 @@ export default function ProfileScreen() {
   const handleReaction = async (actionId: string, emoji: string, activityType: 'event' | 'split') => {
     if (!emoji.trim()) return;
     
-    const currentUserId = 'current-user'; // TODO: Replace with actual user ID
+    const currentUserId = 'current-user';
     
-    // Optimistically update UI
     setActionReactions(prev => {
       const existingReactions = prev[actionId] || [];
       const emojiReaction = existingReactions.find(r => r.emoji === emoji);

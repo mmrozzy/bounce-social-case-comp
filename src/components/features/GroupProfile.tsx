@@ -1,18 +1,23 @@
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, TextInput, Alert } from 'react-native';
+/**
+ * @fileoverview Comprehensive group profile and management component.
+ * Displays group details, members, events, transactions, and activity feed.
+ * Includes event/split creation, image uploads, reactions, and persona analysis.
+ * Main hub for all group-related functionality.
+ */
+
+import { useImageCache } from '@/src/contexts/ImageCacheContext';
+import { createEvent, createTransaction, deleteEvent, deleteGroup, deleteTransaction, getActivityReactions, getGroupById, getGroupData, toggleActivityReaction, updateGroupImages, uploadImage } from '@/src/services/database';
+import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, FlatList, Image, Modal, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import SendNotification from '../ui/Notification';
 import CreateEvent from './CreateEvent';
 import CreateSplit from './CreateSplit';
-import { analyzeGroupPersona } from '@/src/types/groupPersonaAnalyzer';
-import { getGroupData, createEvent, createTransaction, deleteGroup, deleteEvent, deleteTransaction, uploadImage, updateGroupImages, getGroupById, getActivityReactions, toggleActivityReaction } from '@/src/services/database';
-import { useImageCache } from '@/src/contexts/ImageCacheContext';
-import { Share } from 'react-native';
-import SendNotification from '../ui/Notification';
 import PersonaWrapper from './GroupPersona';
-import { LinearGradient } from 'expo-linear-gradient';
 
-// Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
 
 interface GroupProfileProps {

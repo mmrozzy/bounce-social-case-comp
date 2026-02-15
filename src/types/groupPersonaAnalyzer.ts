@@ -1,7 +1,14 @@
-import { Persona, ProfileResult } from './index'
+/**
+ * @fileoverview Group persona analysis engine.
+ * Analyzes collective group behavior by aggregating member personas
+ * and group-level statistics to determine the group's dominant personality.
+ * 
+ * Provides insights into group dynamics, spending patterns, and collective traits.
+ */
+
 import { extractUserFeatures } from './feature_extractor'
-import { matchPersona, getPersonaDetails } from './personaMatcher'
-import { Transaction, Event, Group, User } from './index'
+import { Event, Group, ProfileResult, Transaction, User } from './index'
+import { getPersonaDetails, matchPersona } from './personaMatcher'
 
 interface GroupPersonaResult {
   dominantPersona: ProfileResult

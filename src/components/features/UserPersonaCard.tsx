@@ -1,7 +1,13 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions, Modal } from 'react-native';
+/**
+ * @fileoverview User persona card display component.
+ * Full-page persona profile view with animated charts, traits, statistics,
+ * and weekly activity breakdown. Supports theme customization.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useRef, useEffect } from 'react';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;

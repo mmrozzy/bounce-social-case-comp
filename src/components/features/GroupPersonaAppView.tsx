@@ -1,8 +1,13 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions, Modal } from 'react-native';
+/**
+ * @fileoverview Group persona in-app display component.
+ * Full-page animated group persona profile with statistics, traits, member distribution,
+ * and visual charts. Supports multiple themes and share functionality.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useRef, useEffect } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Circle, Rect, Polygon, Ellipse } from 'react-native-svg';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 // Type Definition
 type ThemeType = {

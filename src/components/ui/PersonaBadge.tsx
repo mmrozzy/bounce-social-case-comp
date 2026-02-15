@@ -1,8 +1,14 @@
+/**
+ * @fileoverview Persona badge UI components for displaying user personality types.
+ * Provides PersonaBadge and PersonaChip components in various sizes
+ * with automatic persona analysis and visual indicators.
+ */
+
 import React, { useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Event, Group, Transaction } from '../src/types'
 import { extractUserFeatures } from '../src/types/feature_extractor'
-import { matchPersona, getPersonaDetails } from '../src/types/personaMatcher'
-import { Transaction, Event, Group } from '../src/types'
+import { getPersonaDetails, matchPersona } from '../src/types/personaMatcher'
 
 interface PersonaBadgeProps {
   userId: string

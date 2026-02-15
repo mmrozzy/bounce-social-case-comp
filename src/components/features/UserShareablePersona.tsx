@@ -1,18 +1,24 @@
+/**
+ * @fileoverview Shareable user persona card component.
+ * Generates social media-ready persona cards with themes for Instagram posts and stories.
+ * Supports image capture and export via native share sheet.
+ */
+
+import { Ionicons } from '@expo/vector-icons';
+import * as Sharing from 'expo-sharing';
 import React, { useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  type ViewStyle,
-  type TextStyle,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    type TextStyle,
+    type ViewStyle,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { captureRef } from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
 
 const { width } = Dimensions.get('window');
 

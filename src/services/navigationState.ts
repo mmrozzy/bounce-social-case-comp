@@ -1,4 +1,8 @@
-// Shared navigation state for coordinating between tabs
+/**
+ * @fileoverview Shared navigation state management service.
+ * Provides a simple pub/sub pattern for coordinating navigation between tabs.
+ * Used to pass group and activity IDs across tab boundaries.
+ */
 
 interface NavigationState {
   groupId: string | null;

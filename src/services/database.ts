@@ -1,7 +1,22 @@
-import { supabase } from '../config/supabase';
-import { User, Group, Event, Transaction } from '../types';
+/**
+ * @fileoverview Database service layer for Supabase interactions.
+ * Provides type-safe CRUD operations for users, groups, events, and transactions.
+ * Includes image upload functionality to Supabase Storage.
+ * 
+ * All functions handle error logging and return typed results.
+ */
 
-// Upload image to Supabase Storage
+import { supabase } from '../config/supabase';
+import { Event, Group, Transaction, User } from '../types';
+
+/**
+ * Uploads an image file to Supabase Storage.
+ * 
+ * @param file - Image file object with uri, type, and name properties
+ * @param folder - Target folder: 'profiles', 'banners', or 'groups'
+ * @returns Public URL of the uploaded image
+ * @throws Error if upload fails
+ */
 export async function uploadImage(file: { uri: string; type: string; name: string }, folder: 'profiles' | 'banners' | 'groups') {
   try {
     console.log('Starting image upload...', { uri: file.uri, folder });
@@ -435,7 +450,6 @@ export async function getActivityReactions(
   userId: string
 ): Promise<Record<string, GroupedReaction[]>> {
   try {    
-    // Just fetch ALL reactions - we'll filter on the frontend
     const { data: reactions, error } = await supabase
       .from('activity_reactions')
       .select('*')

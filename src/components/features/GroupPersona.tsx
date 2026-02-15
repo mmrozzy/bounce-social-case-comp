@@ -1,5 +1,11 @@
-import { Modal } from 'react-native';
+/**
+ * @fileoverview Group persona modal wrapper component.
+ * Coordinates between the in-app group persona view and shareable export view.
+ * Manages theme selection and navigation flow.
+ */
+
 import { useState } from 'react';
+import { Modal } from 'react-native';
 import GroupWrappedAppView from './GroupPersonaAppView';
 import ShareableWrapped from './ShareablePersona';
 

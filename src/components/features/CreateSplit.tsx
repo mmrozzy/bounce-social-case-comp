@@ -1,7 +1,12 @@
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
+/**
+ * @fileoverview Split bill creation form component.
+ * Modal form for creating bill splits with name, total amount, and deadline.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface CreateSplitProps {
   onBack: () => void;

@@ -1,5 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getUsers, getGroups } from '../services/database';
+/**
+ * @fileoverview Image cache context provider for performance optimization.
+ * Maintains an in-memory cache of user and group profile/banner images
+ * to reduce database queries and improve UI responsiveness.
+ * 
+ * The cache is loaded on mount and can be refreshed or updated incrementally.
+ */
+
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { getGroups, getUsers } from '../services/database';
 
 interface ImageCache {
   userImages: Record<string, { profileImage?: string; bannerImage?: string }>;

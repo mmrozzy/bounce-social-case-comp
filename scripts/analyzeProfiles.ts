@@ -1,7 +1,15 @@
-import { analyzeUserProfile } from '../src/utils/profileAnalyzer'
+/**
+ * @fileoverview CLI tool for testing the persona analysis system.
+ * Analyzes sample user profiles and outputs detailed persona classifications
+ * with behavioral features, traits, and statistics.
+ * 
+ * Run with: npx ts-node scripts/analyzeProfiles.ts
+ */
+
+import { sampleEvents, sampleGroups, sampleTransactions, sampleUsers } from '../src/__mocks__/sampleData'
 import { extractUserFeatures } from '../src/types/feature_extractor'
 import { matchPersona } from '../src/types/personaMatcher'
-import { sampleUsers, sampleGroups, sampleEvents, sampleTransactions } from '../src/__mocks__/sampleData'
+import { analyzeUserProfile } from '../src/utils/profileAnalyzer'
 
 console.log('🎭 Bounce Bolt Persona Analysis Demo\n')
 console.log('='.repeat(70))

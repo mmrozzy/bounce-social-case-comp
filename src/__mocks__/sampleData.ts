@@ -1,4 +1,10 @@
-import { User, Group, Event, Transaction } from '../src/types'
+/**
+ * @fileoverview Sample test data for persona analysis demonstrations.
+ * Contains representative users, groups, events, and transactions
+ * for testing the behavioral classification system.
+ */
+
+import { Event, Group, Transaction, User } from '../src/types'
 
 // Sample users
 export const sampleUsers: User[] = [

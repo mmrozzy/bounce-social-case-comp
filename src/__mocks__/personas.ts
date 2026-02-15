@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Predefined persona definitions for the matching algorithm.
+ * Contains the 12 personality personas with their characteristic behavioral patterns.
+ * Each persona has a unique combination of group size, socialness, budget level,
+ * generosity, payment speed, activity level, and time preferences.
+ */
+
 import { Persona } from '../src/types'
 
 export const personas: Record<string, Persona> = {

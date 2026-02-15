@@ -1,15 +1,19 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
-import { useState, useEffect } from 'react';
+/**
+ * @fileoverview Groups screen and management.
+ * Displays list of user's groups with navigation to group profiles.
+ * Handles group creation and inter-tab navigation coordination.
+ */
+
+import CreateGroup from '@/src/components/features/CreateGroup';
+import GroupProfile from '@/src/components/features/GroupProfile';
+import { useImageCache } from '@/src/contexts/ImageCacheContext';
+import { createGroup, getGroups } from '@/src/services/database';
+import { clearNavigationTarget, getNavigationTarget } from '@/src/services/navigationState';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useCallback } from 'react';
-import GroupProfile from '@/src/components/features/GroupProfile';
-import CreateGroup from '@/src/components/features/CreateGroup';
-import { getNavigationTarget, clearNavigationTarget, subscribeToNavigation } from '@/src/services/navigationState';
-import { getGroups, createGroup } from '@/src/services/database';
-import { useImageCache } from '@/src/contexts/ImageCacheContext';
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Current user identifier (will be replaced with actual auth later)
 const CURRENT_USER_ID = 'current-user';
 
 interface Group {
@@ -100,9 +104,7 @@ export default function GroupsScreen() {
 
   const handleCreateGroup = async (groupName: string, banner: string | null, profilePic: string | null, password: string) => {
     try {
-      // TODO: Replace 'current-user' with actual authenticated user ID
       await createGroup(groupName, [CURRENT_USER_ID]);
-      // Reload groups to show the new one
       await loadGroups();
       setShowCreateGroup(false);
     } catch (error) {

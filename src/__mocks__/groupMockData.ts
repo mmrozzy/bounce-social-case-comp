@@ -1,4 +1,10 @@
-import { User, Group, Event, Transaction } from '../src/types'
+/**
+ * @fileoverview Comprehensive mock data for group persona analysis testing.
+ * Contains multiple users, group data, events, and transactions
+ * to demonstrate group dynamics and collective persona analysis.
+ */
+
+import { Event, Group, Transaction, User } from '../src/types'
 
 // All users in the system
 export const allUsers: User[] = [

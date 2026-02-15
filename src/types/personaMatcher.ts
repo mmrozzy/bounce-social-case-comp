@@ -1,7 +1,15 @@
-import { Persona } from './index'
-import { personas } from '../__mocks__/personas'
+/**
+ * @fileoverview Persona matching algorithm implementation.
+ * Uses weighted multi-dimensional similarity scoring to classify users
+ * into one of 12 predefined personality personas.
+ * 
+ * The algorithm calculates categorical similarity across 7 behavioral dimensions
+ * with different weights to determine the best persona match.
+ */
 
-// Weights for each feature in similarity calculation
+import { personas } from '../__mocks__/personas'
+import { Persona } from './index'
+
 const FEATURE_WEIGHTS = {
   groupSize: 1.5,
   socialness: 2.0,

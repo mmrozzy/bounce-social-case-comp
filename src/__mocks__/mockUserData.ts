@@ -1,4 +1,10 @@
-import { User, Group, Event, Transaction } from '../src/types'
+/**
+ * @fileoverview Mock data for the current user's profile and activity.
+ * Contains sample events, transactions, and groups for a single user
+ * to demonstrate persona analysis on the profile screen.
+ */
+
+import { Event, Group, Transaction, User } from '../src/types'
 
 // Current user data
 export const currentUser: User = {

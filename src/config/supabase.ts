@@ -1,7 +1,13 @@
+/**
+ * @fileoverview Supabase client configuration and initialization.
+ * Configures the PostgreSQL database client with real-time subscription support.
+ * Requires EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.
+ * 
+ * @see {@link https://supabase.com/docs Supabase Documentation}
+ */
+
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration from environment variables
-// Environment variables must be prefixed with EXPO_PUBLIC_ to be accessible
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 

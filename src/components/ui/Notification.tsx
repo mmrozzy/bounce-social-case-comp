@@ -1,7 +1,13 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Modal, Alert, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+/**
+ * @fileoverview Notification management UI component.
+ * Provides a modal interface for sending push notifications to group members
+ * about events, splits, and custom messages.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
 import * as Notifications from 'expo-notifications';
+import { useState } from 'react';
+import { Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 
 interface Activity {
   id: string;

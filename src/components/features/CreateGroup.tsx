@@ -1,7 +1,13 @@
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+/**
+ * @fileoverview Group creation form component.
+ * Comprehensive form for creating new groups with name, password protection,
+ * and optional banner/profile image uploads.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import { useEffect, useState } from 'react';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface CreateGroupProps {
   onBack: () => void;

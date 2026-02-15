@@ -1,11 +1,17 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+/**
+ * @fileoverview Root tab navigation layout.
+ * Configures bottom tab navigation with Groups and Profile screens.
+ * Initializes push notifications and wraps app with ImageCacheProvider.
+ */
+
 import Logo from '@/src/components/ui/Logo';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { View, StyleSheet, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications'; 
-import { useEffect } from 'react'; 
 import { ImageCacheProvider } from '@/src/contexts/ImageCacheContext';
+import { Ionicons } from '@expo/vector-icons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as Notifications from 'expo-notifications';
+import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({

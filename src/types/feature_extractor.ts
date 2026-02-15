@@ -1,5 +1,22 @@
-import { Transaction, Event, Group, Persona } from './index'
+/**
+ * @fileoverview User behavioral feature extraction module.
+ * Analyzes user transaction history, event participation, and group interactions
+ * to extract quantifiable behavioral metrics across 7 dimensions.
+ * 
+ * These features are used to classify users into personality personas.
+ */
 
+import { Event, Group, Persona, Transaction } from './index'
+
+/**
+ * Extracts behavioral features from a user's activity data.
+ * 
+ * @param userId - Unique identifier of the user to analyze
+ * @param transactions - All transactions in the system
+ * @param events - All events in the system
+ * @param groups - All groups in the system
+ * @returns Persona object containing behavioral classification across 7 dimensions
+ */
 export function extractUserFeatures(
   userId: string,
   transactions: Transaction[],
@@ -63,8 +80,6 @@ export function extractUserFeatures(
     generosityRate > 0.5 ? 'high' : 
     generosityRate > 0.25 ? 'medium' : 'low'
 
-  // Calculate payment speed (simplified - you'd need settlement timestamps)
-  // For now, use p2p frequency as proxy for being good with money
   const p2pCount = transactions.filter(t => 
     t.type === 'p2p' && t.from === userId
   ).length

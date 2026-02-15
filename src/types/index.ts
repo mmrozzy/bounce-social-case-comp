@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Core TypeScript type definitions for Bounce Together.
+ * Contains interfaces for users, groups, events, transactions, personas, and analysis results.
+ * These types are used throughout the application for type safety and data modeling.
+ */
+
 export interface User {
   id: string
   name: string

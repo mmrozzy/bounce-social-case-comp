@@ -1,7 +1,12 @@
-import { View, Text, StyleSheet, TouchableOpacity, Platform, TextInput, ScrollView } from 'react-native';
+/**
+ * @fileoverview Event creation form component.
+ * Modal form for creating new group events with name, amount, and deadline selection.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface CreateEventProps {
   onBack: () => void;
