@@ -2,6 +2,7 @@
  * @fileoverview Notification management UI component.
  * Provides a modal interface for sending push notifications to group members
  * about events, splits, and custom messages.
+ * NOTE: Notifs are sent to the sender's device for demo purposes.
  */
 
 import { Ionicons } from '@expo/vector-icons';
