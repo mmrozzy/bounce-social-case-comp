@@ -5,6 +5,7 @@
 - Node.js (v16 or higher)
 - npm or yarn
 - Expo CLI
+- Expo Go app (for running the app on mobile devices)
 - A Supabase account
 
 ## Installation
@@ -39,7 +40,9 @@
    ```bash
    npx expo start
    ```
-
+   Once the server is running, you'll see:
+   - A QR code in the terminal, which you can scan with the Expo Go app on your mobile device 
+   - A link to run the app in a web browser
 
 ## Path Aliases
 
